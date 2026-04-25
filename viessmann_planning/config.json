@@ -1,0 +1,22 @@
+{
+  "name": "Viessmann Planning",
+  "description": "Manages Viessmann heating and DHW schedules from two-week cycle plans",
+  "version": "1.0.0",
+  "slug": "viessmann_planning",
+  "homeassistant_api": true,
+  "hassio_api": true,
+  "hassio_role": "manager",
+  "arch": ["aarch64"],
+  "startup": "application",
+  "boot": "auto",
+  "ingress": true,
+  "ingress_port": 8098,
+  "panel_icon": "mdi:radiator",
+  "panel_title": "Viessmann Planning",
+  "options": {
+    "verbosity": 0
+  },
+  "schema": {
+    "verbosity": "int"
+  }
+}

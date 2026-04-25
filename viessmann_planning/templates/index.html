@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viessmann Planning</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #f5f6f8;
+  --surface:  #ffffff;
+  --border:   #e2e4e9;
+  --text:     #1a1d23;
+  --muted:    #6b7280;
+  --accent:   #2563eb;
+  --accent-h: #1d4ed8;
+  --red:      #dc2626;
+  --green:    #16a34a;
+  --orange:   #d97706;
+  --l1:       #2563eb;
+  --l2:       #d97706;
+  --warn-bg:  #fef3c7;
+  --warn-bd:  #fcd34d;
+  --font:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:     'SF Mono', 'Fira Code', monospace;
+  --radius:   8px;
+  --shadow:   0 1px 3px rgba(0,0,0,.08);
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text);
+       display: flex; height: 100vh; overflow: hidden; font-size: 14px; }
+
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+           display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-title { padding: 20px 16px 12px; font-size: 13px; font-weight: 700;
+                 letter-spacing: .05em; color: var(--accent); text-transform: uppercase; }
+.nav-section { padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--muted);
+               text-transform: uppercase; letter-spacing: .08em; margin-top: 8px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+            margin: 1px 4px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
+            color: var(--text); transition: background .12s; }
+.nav-item:hover { background: var(--bg); }
+.nav-item.active { background: #eff6ff; color: var(--accent); font-weight: 600; }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.section { display: none; flex: 1; flex-direction: column; }
+.section.active { display: flex; }
+.section-header { padding: 24px 28px 16px; border-bottom: 1px solid var(--border);
+                  background: var(--surface); display: flex; align-items: center;
+                  justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.section-header h1 { font-size: 18px; font-weight: 700; }
+.section-body { padding: 20px 28px; flex: 1; overflow-y: auto; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+       border-radius: 6px; border: none; cursor: pointer; font-size: 13px;
+       font-weight: 500; transition: background .12s, opacity .12s; }
+.btn-primary   { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger    { background: #fee2e2; color: var(--red); }
+.btn-danger:hover { background: #fecaca; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 5px; background: transparent; border: 1px solid var(--border);
+            border-radius: 6px; cursor: pointer; color: var(--muted); transition: background .12s; }
+.btn-icon:hover { background: var(--bg); }
+.btn-icon svg { width: 14px; height: 14px; display: block; }
+
+.card { background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; }
+.card-header { padding: 14px 18px; display: flex; align-items: center;
+               justify-content: space-between; border-bottom: 1px solid var(--border); }
+.card-title { font-weight: 600; font-size: 14px; }
+.card-body { padding: 16px 18px; }
+
+.item-row { display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 14px; border-radius: 6px; cursor: pointer;
+            transition: background .1s; margin-bottom: 2px; }
+.item-row:hover { background: var(--bg); }
+.item-row.active { background: #eff6ff; }
+.item-name { font-weight: 500; font-size: 13.5px; }
+.item-meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.item-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
+.item-row:hover .item-actions { opacity: 1; }
+
+.split { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+.list-panel { background: var(--surface); border: 1px solid var(--border);
+              border-radius: var(--radius); overflow: hidden; }
+.list-panel-header { padding: 12px 14px; border-bottom: 1px solid var(--border);
+                     display: flex; align-items: center; justify-content: space-between;
+                     background: var(--bg); }
+.list-panel-title { font-weight: 600; font-size: 13px; color: var(--muted);
+                    text-transform: uppercase; letter-spacing: .05em; }
+.list-panel-body { overflow-y: auto; max-height: calc(100vh - 160px); padding: 6px; }
+.detail-panel { background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); overflow: hidden; }
+.detail-header { padding: 14px 18px; border-bottom: 1px solid var(--border);
+                 display: flex; align-items: center; justify-content: space-between;
+                 background: var(--bg); }
+.detail-body { padding: 20px; overflow-y: auto; max-height: calc(100vh - 160px); }
+
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+              text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+.form-input, .form-select { width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+                             border-radius: 6px; font-size: 13.5px; background: var(--surface);
+                             color: var(--text); transition: border-color .15s; }
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); }
+.form-input.error { border-color: var(--red); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.form-section-title { font-size: 11px; font-weight: 700; color: var(--muted);
+                      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
+                      padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.form-error { font-size: 12px; color: var(--red); margin-top: 4px; }
+
+.slots-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.slots-table th { text-align: left; font-size: 11px; font-weight: 600;
+                  text-transform: uppercase; letter-spacing: .05em;
+                  color: var(--muted); padding: 4px 8px; }
+.slots-table td { padding: 3px 4px; }
+.slots-table td input, .slots-table td select {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--border);
+  border-radius: 4px; font-size: 13px; font-family: var(--mono);
+  background: var(--surface); }
+.slots-table td input:focus, .slots-table td select:focus {
+  outline: none; border-color: var(--accent); }
+.slot-del { background: none; border: none; cursor: pointer; color: var(--muted);
+            padding: 2px 4px; border-radius: 4px; font-size: 14px; }
+.slot-del:hover { background: #fee2e2; color: var(--red); }
+.slot-active { background: #eff6ff !important; }
+.slot-active td { font-weight: 600; }
+
+.events-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.events-table th { text-align: left; font-size: 11px; font-weight: 600;
+                   text-transform: uppercase; letter-spacing: .05em;
+                   color: var(--muted); padding: 5px 6px;
+                   border-bottom: 1px solid var(--border); }
+.events-table td { padding: 4px 4px; border-bottom: 1px solid var(--bg); }
+.events-table select, .events-table input { padding: 4px 6px; border: 1px solid var(--border);
+  border-radius: 4px; font-size: 13px; }
+.events-table select:focus, .events-table input:focus { outline: none; border-color: var(--accent); }
+
+.level-badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+               font-size: 11px; font-weight: 700; }
+.level-badge.l1 { background: #dbeafe; color: var(--l1); }
+.level-badge.l2 { background: #fef3c7; color: var(--l2); }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
+                 z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 24px;
+         min-width: 360px; max-width: 500px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+.alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+.alert-warn  { background: var(--warn-bg); border: 1px solid var(--warn-bd); color: #92400e; }
+.alert-error { background: #fee2e2; border: 1px solid #fca5a5; color: var(--red); }
+.alert-ok    { background: #dcfce7; border: 1px solid #86efac; color: var(--green); }
+
+.badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px;
+         font-weight: 600; }
+.badge-blue   { background: #dbeafe; color: var(--l1); }
+.badge-orange { background: #fef3c7; color: var(--l2); }
+.badge-gray   { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.badge-green  { background: #dcfce7; color: var(--green); }
+
+.dtp-wrap { position: relative; }
+.dtp-row { display: flex; gap: 6px; align-items: center; }
+.dtp-date-btn { flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+                font-size: 13.5px; background: var(--surface); color: var(--text);
+                cursor: pointer; text-align: left; transition: border-color .15s; }
+.dtp-date-btn:hover { border-color: var(--accent); }
+.dtp-time { width: 72px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 13.5px; font-family: var(--mono); background: var(--surface);
+            color: var(--text); transition: border-color .15s; }
+.dtp-time:focus { outline: none; border-color: var(--accent); }
+.dtp-clear { padding: 6px 8px; background: none; border: 1px solid var(--border);
+             border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 13px; }
+.dtp-clear:hover { background: #fee2e2; color: var(--red); border-color: #fca5a5; }
+.dtp-cal { position: absolute; z-index: 50; top: calc(100% + 4px); left: 0;
+           background: var(--surface); border: 1px solid var(--border);
+           border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,.12);
+           padding: 10px; min-width: 220px; display: none; }
+.dtp-cal.open { display: block; }
+.dtp-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dtp-cal-nav button { background: none; border: none; cursor: pointer; padding: 3px 7px;
+                      border-radius: 4px; font-size: 14px; color: var(--text); }
+.dtp-cal-nav button:hover { background: var(--bg); }
+.dtp-cal-title { font-size: 13px; font-weight: 600; }
+.dtp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dtp-cal-dow { font-size: 10px; font-weight: 600; color: var(--muted); text-align: center;
+               text-transform: uppercase; padding: 2px 0 4px; }
+.dtp-cal-day { font-size: 12px; text-align: center; padding: 4px 2px; border-radius: 4px;
+               cursor: pointer; border: none; background: none; color: var(--text); }
+.dtp-cal-day:hover { background: var(--bg); }
+.dtp-cal-day.today { font-weight: 700; color: var(--accent);
+                     box-shadow: inset 0 0 0 2px var(--accent); }
+.dtp-cal-day.selected { background: var(--accent); color: #fff; font-weight: 600; }
+.dtp-cal-day.other-month { color: #ccc; }
+
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 18px;
+         border-radius: 8px; font-size: 13.5px; font-weight: 500;
+         background: var(--text); color: #fff; opacity: 0;
+         transform: translateY(8px); transition: opacity .2s, transform .2s;
+         pointer-events: none; z-index: 200; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.ok  { background: var(--green); }
+.toast.err { background: var(--red); }
+
+.empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty-icon { font-size: 32px; margin-bottom: 10px; }
+.empty-text { font-size: 14px; }
+
+.tt-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.tt-tab { padding: 4px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;
+          border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.tt-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.temp-chip { display: inline-block; padding: 3px 10px; border-radius: 12px;
+             font-size: 13px; font-weight: 700; font-family: var(--mono); }
+.temp-chip.l1 { background: #dbeafe; color: var(--l1); }
+.temp-chip.l2 { background: #fef3c7; color: var(--l2); }
+.temp-chip.live { background: #dcfce7; color: var(--green); }
+.temp-chip.diff { background: #fee2e2; color: var(--red); }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-title">Viessmann Planning</div>
+
+  <div class="nav-section">Active Status</div>
+  <div class="nav-item active" data-section="planning" onclick="showSection('planning')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1.5"/>
+    </svg>
+    Planning
+  </div>
+  <div class="nav-item" data-section="weekconfig" onclick="showSection('weekconfig')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2z"/>
+      <path d="M5 8h6M8 5v6" stroke-linecap="round"/>
+    </svg>
+    Weekconfig
+  </div>
+
+  <div class="nav-section">Configuration</div>
+  <div class="nav-item" data-section="plannings" onclick="showSection('plannings')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="2" y="2" width="12" height="12" rx="1"/>
+      <path d="M5 2v12M2 6h3M2 10h3"/>
+    </svg>
+    Plannings
+  </div>
+  <div class="nav-item" data-section="weekconfigs" onclick="showSection('weekconfigs')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="2" y="3" width="12" height="10" rx="1"/>
+      <path d="M5 7h6M5 10h4"/>
+    </svg>
+    Weekconfigs
+  </div>
+  <div class="nav-item" data-section="settings" onclick="showSection('settings')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="8" cy="8" r="2.5"/>
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+    </svg>
+    Settings
+  </div>
+
+  <div class="nav-section">System</div>
+  <div class="nav-item" data-section="addon" onclick="showSection('addon')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="2" y="2" width="5" height="5" rx="1"/>
+      <rect x="9" y="2" width="5" height="5" rx="1"/>
+      <rect x="2" y="9" width="5" height="5" rx="1"/>
+      <path d="M9 11.5h5M11.5 9v5" stroke-linecap="round"/>
+    </svg>
+    Add-on
+  </div>
+  <div class="nav-item" data-section="logs" onclick="showSection('logs')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="2" y="2" width="12" height="12" rx="1"/>
+      <path d="M5 5h6M5 8h6M5 11h4"/>
+    </svg>
+    Logs
+  </div>
+  <div class="nav-item" id="nav-service" data-section="service" onclick="showSection('service')" style="display:none">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="1" y="4" width="14" height="9" rx="1.5"/>
+      <path d="M5 4V3a3 3 0 0 1 6 0v1"/>
+      <circle cx="8" cy="8.5" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+    Service
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- ── PLANNING (Active Status) ── -->
+  <section class="section active" id="sec-planning">
+    <div class="section-header">
+      <h1>Planning</h1>
+      <button class="btn btn-secondary btn-sm" onclick="loadPlanning()">↻ Refresh</button>
+    </div>
+    <div class="section-body" id="planningBody">
+      <div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ── WEEKCONFIG (Active Status) ── -->
+  <section class="section" id="sec-weekconfig">
+    <div class="section-header">
+      <h1>Weekconfig</h1>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="loadWcStatus(false)">↻ Refresh</button>
+        <button class="btn btn-secondary btn-sm" onclick="loadWcStatus(true)">⚡ Read Viessmann</button>
+      </div>
+    </div>
+    <div class="section-body" id="wcStatusBody">
+      <div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ── WEEKCONFIGS (Configuration) ── -->
+  <section class="section" id="sec-weekconfigs">
+    <div class="section-header"><h1>Weekconfigs</h1></div>
+    <div class="section-body">
+      <div class="split">
+        <div class="list-panel">
+          <div class="list-panel-header">
+            <span class="list-panel-title">Configs</span>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-secondary btn-sm" onclick="wcNew()">+ New</button>
+              <button class="btn btn-secondary btn-sm" onclick="wcCopyFrom()">⎘ Copy</button>
+            </div>
+          </div>
+          <div class="list-panel-body" id="wcList"></div>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-header" id="wcDetailHeader" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;flex:1">
+              <input class="form-input" id="wcDetailName" placeholder="Config name"
+                style="max-width:220px;font-weight:600" oninput="state.wcName=this.value">
+              <div id="wcNameErr" style="font-size:12px;color:var(--red)"></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-danger btn-sm" id="wcDeleteBtn" onclick="wcDelete()">Delete</button>
+              <button class="btn btn-primary btn-sm" onclick="wcSave()">Save</button>
+            </div>
+          </div>
+          <div class="detail-body" id="wcDetail">
+            <div class="empty"><div class="empty-icon">📋</div>
+              <div class="empty-text">Select a config to edit</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PLANNINGS (Configuration) ── -->
+  <section class="section" id="sec-plannings">
+    <div class="section-header"><h1>Plannings</h1></div>
+    <div class="section-body">
+      <div class="split">
+        <div class="list-panel">
+          <div class="list-panel-header">
+            <span class="list-panel-title">Plannings</span>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-secondary btn-sm" onclick="plNew()">+ New</button>
+              <button class="btn btn-secondary btn-sm" onclick="plCopyFrom()">⎘ Copy</button>
+            </div>
+          </div>
+          <div class="list-panel-body" id="plList"></div>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-header" id="plDetailHeader" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;flex:1">
+              <input class="form-input" id="plDetailName" placeholder="Planning name"
+                style="max-width:220px;font-weight:600" oninput="state.plData.name=this.value">
+              <div id="plNameErr" style="font-size:12px;color:var(--red)"></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-danger btn-sm" id="plDeleteBtn" onclick="plDelete()">Delete</button>
+              <button class="btn btn-primary btn-sm" onclick="plSave()">Save</button>
+            </div>
+          </div>
+          <div id="plValidationBar"></div>
+          <div class="detail-body" id="plDetail">
+            <div class="empty"><div class="empty-icon">📅</div>
+              <div class="empty-text">Select a planning to edit</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SETTINGS ── -->
+  <section class="section" id="sec-settings">
+    <div class="section-header">
+      <h1>Settings</h1>
+      <button class="btn btn-primary btn-sm" onclick="settingsSave()">Save</button>
+    </div>
+    <div class="section-body" style="max-width:520px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Scheduler</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Resolution (minutes)</label>
+            <select class="form-select" id="set-resolution" style="max-width:120px">
+              <option value="1">1</option>
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="60">60</option>
+            </select>
+            <div class="form-hint">Granularity of time slots and scheduler interval.
+              Changing this will round all existing slot times to the nearest multiple.
+              Daemon runs every <em>n</em> min + 2s after each slot boundary.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Default temperatures</span></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Heating default (°C)</label>
+              <input class="form-input" type="number" min="5" max="25" id="set-heating-temp"
+                style="max-width:100px" placeholder="20">
+              <div class="form-hint">Used when adding a new slot to a heating config.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">DHW/ECS default (°C)</label>
+              <input class="form-input" type="number" min="55" max="75" id="set-dhw-temp"
+                style="max-width:100px" placeholder="60">
+              <div class="form-hint">Used when adding a new slot to a DHW config.</div>
+            </div>
+          </div>
+          <div id="set-err" style="color:var(--red);font-size:12px;margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-header">
+          <span class="card-title">Viessmann Credentials</span>
+          <span id="creds-status"></span>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Username (email)</label>
+            <input class="form-input" type="email" id="creds-username" placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div style="display:flex;gap:6px">
+              <input class="form-input" type="password" id="creds-password" placeholder="••••••••">
+              <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="credsTogglePwd(this)">Show</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Client ID</label>
+            <input class="form-input" id="creds-clientid" placeholder="your_client_id">
+            <div class="form-hint">Register at <a href="https://app.developer.viessmann-climatesolutions.com" target="_blank" style="color:var(--accent)">app.developer.viessmann-climatesolutions.com</a> — redirect URI: <code>vicare://oauth-callback/everest</code></div>
+          </div>
+          <div id="creds-err" style="color:var(--red);font-size:12px;margin-bottom:8px"></div>
+          <button class="btn btn-primary btn-sm" onclick="credsSave()">Save credentials</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LOGS ── -->
+  <section class="section" id="sec-logs">
+    <div class="section-header">
+      <h1>Logs</h1>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
+        </label>
+        <select class="form-select" id="log-lines" onchange="loadLogs()"
+          style="width:auto;padding:5px 8px;font-size:12px">
+          <option value="100">100 lines</option>
+          <option value="200" selected>200 lines</option>
+          <option value="500">500 lines</option>
+          <option value="1000">1000 lines</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">↻ Refresh</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyLogs(this)">⎘ Copy</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs()">Clear</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0;display:flex;flex-direction:column;flex:1;min-height:0">
+      <div id="log-meta" style="padding:8px 20px;font-size:11px;color:var(--muted);
+        border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0"></div>
+      <pre id="log-output" style="flex:1;overflow-y:auto;margin:0;padding:14px 20px;
+        font-family:var(--mono);font-size:12px;line-height:1.6;background:#1a1d23;
+        color:#e2e4e9;white-space:pre-wrap;word-break:break-all;min-height:0"></pre>
+    </div>
+  </section>
+
+  <!-- ── ADD-ON ── -->
+  <section id="sec-addon" class="section">
+    <div class="section-header">
+      <h1>Add-on</h1>
+      <button class="btn btn-secondary btn-sm" onclick="loadAddon()">↻ Refresh</button>
+    </div>
+    <div class="section-body" id="addonBody" style="max-width:700px">
+      <div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ── SERVICE (macOS) ── -->
+  <section id="sec-service" class="section">
+    <div class="section-header"><h1>Service macOS</h1></div>
+    <div class="section-body" style="max-width:900px">
+      <div id="service-status-card" style="background:var(--surface);border:1px solid var(--border);
+        border-radius:var(--radius);padding:16px 20px;margin-bottom:20px">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;
+          letter-spacing:.08em;margin-bottom:8px">État du LaunchAgent</div>
+        <div id="service-status-text" style="font-size:15px;font-weight:600">—</div>
+        <div id="service-status-sub" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button id="btn-service-action" class="btn btn-primary" onclick="serviceAction()" style="display:none"></button>
+        <span id="btn-service-confirm" style="display:none;gap:8px;align-items:center">
+          Confirmer ?
+          <button class="btn btn-danger btn-sm" onclick="serviceActionConfirmed()">Oui</button>
+          <button class="btn btn-secondary btn-sm" onclick="serviceActionCancelled()">Non</button>
+        </span>
+        <button class="btn btn-secondary" onclick="loadServiceStatus()">Rafraîchir</button>
+      </div>
+      <pre id="service-output" style="margin-top:20px;background:#1a1d23;color:#e2e4e9;
+        font-family:var(--mono);font-size:11px;line-height:1.6;padding:14px 16px;
+        border-radius:var(--radius);white-space:pre-wrap;word-break:break-all;
+        display:none;max-height:400px;overflow-y:auto"></pre>
+    </div>
+  </section>
+
+</main>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirm</div>
+    <div id="confirm-body" style="font-size:14px;color:var(--muted);margin-bottom:4px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('confirm')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-name">
+  <div class="modal">
+    <div class="modal-title" id="modal-name-title">Name</div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="modal-name-input" placeholder="">
+      <div class="form-error" id="modal-name-err"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('name')">Cancel</button>
+      <button class="btn btn-primary" id="modal-name-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────
+// GLOBALS
+// ─────────────────────────────────────────────────────────────────────────
+window.API_BASE = "{{ ingress_path }}";
+
+const DAYS    = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+const DAY_LBL = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const CYCLES  = ["one-week","two-weeks-iso","two-weeks-seq"];
+const TT_KEYS = {
+  "Mon-Sun":           ["Mon-Sun"],
+  "Mon-Fri, Sat, Sun": ["Mon-Fri","Sat","Sun"],
+  "Mon, ..., Sun":     ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+};
+
+let state = {
+  wc: {}, wcCurrent: null, wcIsNew: false, wcName: null, wcData: null,
+  pl: [], plCurrent: null, plIsNew: false, plData: null,
+  settings: { resolution: 10, default_heating_temp: 20, default_dhw_temp: 60 },
+  confirmCb: null,
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// API
+// ─────────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(window.API_BASE + "/api" + path, opts);
+  const data = await r.json();
+  if (!r.ok && !data.exists) throw new Error(data.error || r.statusText);
+  return { ok: r.ok, status: r.status, data };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, type="") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODALS
+// ─────────────────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById("modal-" + id).classList.add("open"); }
+function closeModal(id) { document.getElementById("modal-" + id).classList.remove("open"); }
+
+function confirm(title, body, cb) {
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent  = body;
+  document.getElementById("confirm-ok").onclick = () => { closeModal("confirm"); cb(); };
+  openModal("confirm");
+}
+
+function promptName(title, placeholder, cb) {
+  document.getElementById("modal-name-title").textContent = title;
+  document.getElementById("modal-name-input").value = "";
+  document.getElementById("modal-name-input").placeholder = placeholder;
+  document.getElementById("modal-name-err").textContent = "";
+  document.getElementById("modal-name-ok").onclick = () => {
+    const v = document.getElementById("modal-name-input").value.trim();
+    if (!v) { document.getElementById("modal-name-err").textContent = "Required"; return; }
+    closeModal("name"); cb(v);
+  };
+  openModal("name");
+  setTimeout(() => document.getElementById("modal-name-input").focus(), 50);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// DATE-TIME PICKER
+// ─────────────────────────────────────────────────────────────────────────
+function mkDatePicker(id, value, onChange) {
+  let val = value || null;
+  let calYear, calMonth;
+  const now = new Date();
+
+  function fmt(v) { return v ? v.replace('T', ' ').slice(0, 16) : null; }
+  function display(v) {
+    if (!v) return 'None';
+    const d = new Date(v.replace(' ', 'T') + ':00');
+    return isNaN(d) ? v : d.toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit', year:'numeric'});
+  }
+
+  function render() {
+    const wrap = document.getElementById(id);
+    if (!wrap) return;
+    const [dateStr, timeStr] = val ? val.split(' ') : [null, '00:00'];
+    calYear  = calYear  || parseInt((dateStr || now.toISOString().slice(0,10)).slice(0,4));
+    calMonth = calMonth || parseInt((dateStr || now.toISOString().slice(0,10)).slice(5,7)) - 1;
+
+    let daysHtml = ['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d =>
+      `<div class="dtp-cal-dow">${d}</div>`).join('');
+    const first = new Date(calYear, calMonth, 1).getDay();
+    const adjust = (first + 6) % 7;
+    const dim = new Date(calYear, calMonth + 1, 0).getDate();
+    for (let i = 0; i < adjust; i++) daysHtml += `<button class="dtp-cal-day other-month" disabled></button>`;
+    for (let d = 1; d <= dim; d++) {
+      const iso = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isSel = dateStr === iso;
+      const isNow = iso === now.toISOString().slice(0,10);
+      daysHtml += `<button class="dtp-cal-day${isSel?' selected':''}${isNow?' today':''}"
+        onclick="dtpDay('${id}','${iso}')">${d}</button>`;
+    }
+    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    wrap.innerHTML = `
+      <div class="dtp-wrap">
+        <div class="dtp-row">
+          <button class="dtp-date-btn${val?' has-val':''}" onclick="dtpToggle('${id}')">${display(val) || '—'}</button>
+          <input class="dtp-time" id="${id}-time" type="text" value="${timeStr||'00:00'}"
+            maxlength="5" placeholder="00:00"
+            oninput="dtpTimeChange('${id}',this.value)" onblur="dtpTimeBlur('${id}',this.value)">
+          ${val ? `<button class="dtp-clear" onclick="dtpClear('${id}')">✕</button>` : ''}
+        </div>
+        <div class="dtp-cal" id="${id}-cal">
+          <div class="dtp-cal-nav">
+            <button onclick="dtpNav('${id}',-1)">‹</button>
+            <span class="dtp-cal-title">${months[calMonth]} ${calYear}</span>
+            <button onclick="dtpNav('${id}',1)">›</button>
+          </div>
+          <div class="dtp-cal-grid">${daysHtml}</div>
+        </div>
+      </div>`;
+  }
+
+  window[`dtpDay_${id}`]       = (iso) => { val = iso + ' ' + (document.getElementById(id+'-time')?.value||'00:00'); onChange(fmt(val)); render(); document.getElementById(id+'-cal').classList.remove('open'); };
+  window[`dtpNav_${id}`]       = (dir) => { calMonth += dir; if(calMonth<0){calMonth=11;calYear--;}else if(calMonth>11){calMonth=0;calYear++;} render(); setTimeout(()=>document.getElementById(id+'-cal')?.classList.add('open'),0); };
+  window[`dtpToggle_${id}`]    = () => document.getElementById(id+'-cal')?.classList.toggle('open');
+  window[`dtpTimeChange_${id}`]= (v) => { if(val && /^\d{2}:\d{2}$/.test(v)) { val = val.split(' ')[0]+' '+v; onChange(fmt(val)); } };
+  window[`dtpTimeBlur_${id}`]  = (v) => { if(/^\d{1,2}:\d{2}$/.test(v)) { const p=v.padStart(5,'0'); if(val) val=val.split(' ')[0]+' '+p; if(val) onChange(fmt(val)); } };
+  window[`dtpClear_${id}`]     = () => { val=null; calYear=undefined; calMonth=undefined; onChange(null); render(); };
+
+  render();
+  return { getValue: () => fmt(val) };
+}
+function dtpDay(id, iso)      { window[`dtpDay_${id}`]?.(iso); }
+function dtpNav(id, dir)      { window[`dtpNav_${id}`]?.(dir); }
+function dtpToggle(id)        { window[`dtpToggle_${id}`]?.(); }
+function dtpTimeChange(id, v) { window[`dtpTimeChange_${id}`]?.(v); }
+function dtpTimeBlur(id, v)   { window[`dtpTimeBlur_${id}`]?.(v); }
+function dtpClear(id)         { window[`dtpClear_${id}`]?.(); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// NAV
+// ─────────────────────────────────────────────────────────────────────────
+let _logsTimer = null;
+function showSection(id) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.getElementById("sec-" + id)?.classList.add("active");
+  document.querySelector(`[data-section="${id}"]`)?.classList.add("active");
+  if (id === "planning")   loadPlanning();
+  if (id === "weekconfig") loadWcStatus(false);
+  if (id === "weekconfigs") loadWeekconfigs();
+  if (id === "plannings")  loadPlannings();
+  if (id === "settings")   loadSettings();
+  if (id === "addon")      loadAddon();
+  if (id === "logs")       { loadLogs(); _startLogsAutoRefresh(); }
+  if (id === "service")    loadServiceStatus();
+  if (id !== "logs")       _stopLogsAutoRefresh();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PLANNING (Active Status)
+// ─────────────────────────────────────────────────────────────────────────
+function fmtDate(v) {
+  if (!v || v === 'unknown') return '—';
+  const d = new Date(v);
+  if (isNaN(d)) return v;
+  const diff = Math.round((Date.now() - d) / 1000);
+  const rel  = diff < 0 ? `in ${Math.abs(diff)}s`
+             : diff < 60 ? `${diff}s ago`
+             : diff < 3600 ? `${Math.floor(diff/60)}min ago`
+             : diff < 86400 ? `${Math.floor(diff/3600)}h ago`
+             : `${Math.floor(diff/86400)}d ago`;
+  return `${d.toLocaleString()} <span style="color:var(--muted);font-size:11px">(${rel})</span>`;
+}
+
+async function loadPlanning() {
+  const el = document.getElementById("planningBody");
+  el.innerHTML = `<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Loading…</div></div>`;
+  try {
+    const [statusRes, tlRes, loopRes] = await Promise.allSettled([
+      api("GET", "/status"),
+      api("GET", "/timeline"),
+      api("GET", "/loop-status"),
+    ]);
+    const d    = statusRes.status === 'fulfilled' ? statusRes.value.data : {error: 'status error'};
+    const tl   = tlRes.status    === 'fulfilled' ? tlRes.value.data    : {error: 'timeline error'};
+    const loop = loopRes.status  === 'fulfilled' ? loopRes.value.data  : {running: false};
+    if (d.error)  { el.innerHTML = `<div class="alert alert-error">${d.error}</div>`; return; }
+    if (tl.error) { el.innerHTML = `<div class="alert alert-error">${tl.error}</div>`; return; }
+
+    let html = '';
+
+    // Loop status bar
+    const dot = loop.running
+      ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px rgba(22,163,74,.2);flex-shrink:0"></span>`
+      : `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>`;
+    const loopInfo = loop.running
+      ? `<span style="font-size:13px;font-weight:600;">Loop running</span>
+         <span style="font-size:12px;color:var(--muted);">every ${loop.interval_min} min</span>
+         ${loop.last_run ? `<span style="font-size:12px;color:var(--muted);">· last ${fmtDate(loop.last_run)}</span>` : ''}
+         ${loop.next_run ? `<span style="font-size:12px;color:var(--muted);">· next ${fmtDate(loop.next_run)}</span>` : ''}`
+      : `<span style="font-size:13px;color:var(--muted);">Loop not running</span>`;
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;
+      border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;
+      margin-bottom:1rem;background:var(--surface);">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">${dot}${loopInfo}</div>
+      <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:12px"
+        onclick="runNow(this)">▶ Run now</button>
+    </div>`;
+
+    // Current setpoints (from status)
+    if (d.l1 || d.l2) {
+      html += `<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;">`;
+      if (d.l1) {
+        html += `<div style="border:1px solid var(--l1);background:#eff6ff;border-radius:var(--radius);padding:14px 18px;flex:1;min-width:180px;">
+          <div style="font-size:11px;font-weight:700;color:var(--l1);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Heating</div>
+          <div style="font-size:22px;font-weight:700;color:var(--l1);">${d.l1.temp ?? '—'}°C</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">Current Weekconfig: <strong style="color:var(--text)">${d.l1.config}</strong> from Planning: <strong style="color:var(--text)">${d.l1.planning}</strong></div>
+        </div>`;
+      }
+      if (d.l2) {
+        html += `<div style="border:1px solid var(--l2);background:#fef3c7;border-radius:var(--radius);padding:14px 18px;flex:1;min-width:180px;">
+          <div style="font-size:11px;font-weight:700;color:var(--l2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">DHW</div>
+          <div style="font-size:22px;font-weight:700;color:var(--l2);">${d.l2.temp ?? '—'}°C</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">Current Weekconfig: <strong style="color:var(--text)">${d.l2.config}</strong> from Planning: <strong style="color:var(--text)">${d.l2.planning}</strong></div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // Planning list
+    html += `<div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Plannings</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.5rem;">`;
+    (d.plannings || []).forEach(p => {
+      const opacity = p.status !== 'active' ? 'opacity:.55;' : '';
+      const bColor  = p.status === 'active' ? 'badge-green' : 'badge-gray';
+      html += `<div style="border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;
+                display:grid;grid-template-columns:1fr auto;gap:8px;${opacity}">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:13px;font-weight:600;">${p.name}</span>
+            <span class="badge ${bColor}">${p.status}</span>
+            <span class="badge badge-gray">${p.cycle}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);">${p.period}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-align:right;white-space:nowrap;">
+          ${p.cycle_info ? `<div>${p.cycle_info}</div>` : '<div>—</div>'}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Timeline
+    const cols   = tl.columns || [];
+    const levels = tl.levels  || {};
+    const l1Row  = levels.l1;
+    const l2Row  = levels.l2;
+    const hasAny = l1Row || l2Row;
+
+    if (cols.length && hasAny) {
+      html += `<div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Schedule — next 14 days</div>`;
+      html += `<div style="overflow-x:auto;">`;
+      html += `<table style="border-collapse:collapse;font-size:13px;min-width:${90+48+cols.length*130}px;">`;
+      html += `<colgroup><col style="width:90px;"><col style="width:48px;">`;
+      cols.forEach(() => html += `<col style="width:130px;">`);
+      html += `</colgroup><thead><tr>`;
+      html += `<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);border-bottom:0.5px solid var(--border);">Level</th>`;
+      html += `<th style="border-bottom:0.5px solid var(--border);"></th>`;
+      cols.forEach((col) => {
+        const bdHtml = (col.boundaries || []).map(b =>
+          `<div style="font-size:10px;margin-top:2px;display:inline-block;padding:1px 5px;border-radius:3px;background:var(--bg);color:var(--muted);border:0.5px solid var(--border);">${b.planning} ${b.type}</div>`
+        ).join('');
+        const nowMark = col.now
+          ? `<div style="font-size:11px;font-weight:500;color:var(--accent);">▶ now</div><div style="font-size:10px;color:var(--muted);">${col.label.split('  ')[1]||''}</div>`
+          : `<div style="font-size:11px;font-weight:500;color:var(--muted);">${col.label.split('  ')[0]}</div><div style="font-size:10px;color:var(--muted);">${col.label.split('  ')[1]||''}</div>`;
+        html += `<th style="padding:6px 8px;border-bottom:0.5px solid var(--border);">${nowMark}${bdHtml}</th>`;
+      });
+      html += `</tr></thead><tbody>`;
+
+      function renderLvlRow(row, lvl, lvlColor) {
+        let r = `<tr>`;
+        r += `<td style="padding:8px;font-weight:600;font-size:12px;color:${lvlColor};border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);">${lvl === 'l1' ? 'L1 — Heat' : 'L2 — DHW'}</td>`;
+        r += `<td style="border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);"></td>`;
+        let cur = null;
+        row.forEach(cell => {
+          if (cell) cur = cell;
+          const disp = cell || cur;
+          const bd   = 'border-bottom:0.5px solid var(--border);';
+          if (!disp) { r += `<td style="padding:6px 8px;${bd}"></td>`; return; }
+          const changed = !!cell;
+          const c = lvl === 'l1' ? 'var(--l1)' : 'var(--l2)';
+          const bg = changed ? (lvl === 'l1' ? 'background:rgba(37,99,235,.10);' : 'background:rgba(217,119,6,.10);') : '';
+          r += `<td style="padding:6px 8px;${bg}${bd}">
+            <div style="font-size:12px;font-weight:${changed?'600':'400'};color:${changed?c:'var(--muted)'};">${disp.config}</div>
+            <div style="font-size:10px;color:#c4c8d0;">${disp.planning}</div>
+          </td>`;
+        });
+        r += `</tr>`;
+        return r;
+      }
+
+      if (l1Row) html += renderLvlRow(l1Row, 'l1', 'var(--l1)');
+      if (l2Row) html += renderLvlRow(l2Row, 'l2', 'var(--l2)');
+      html += `</tbody></table></div>`;
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="alert alert-error">Connection error: ${e.message}</div>`;
+  }
+}
+
+async function runNow(btn) {
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    await api("POST", "/run-now");
+    toast("Run triggered", "ok");
+  } catch(e) { toast(e.message, "err"); }
+  finally { btn.disabled = false; btn.textContent = '▶ Run now'; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// WEEKCONFIG STATUS
+// ─────────────────────────────────────────────────────────────────────────
+async function loadWcStatus(fetchLive) {
+  const el = document.getElementById("wcStatusBody");
+  el.innerHTML = `<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Loading…</div></div>`;
+  try {
+    const proms = [api("GET", "/weekconfig-status")];
+    if (fetchLive) proms.push(api("GET", "/viessmann/status").catch(e => ({data:{error:e.message}})));
+    const results = await Promise.allSettled(proms);
+    const d    = results[0].status === 'fulfilled' ? results[0].value.data : {error: results[0].reason?.message};
+    const live = fetchLive && results[1]?.status === 'fulfilled' ? results[1].value.data : null;
+    if (d.error) { el.innerHTML = `<div class="alert alert-error">${d.error}</div>`; return; }
+
+    const liveHeating = live?.heating_temp;
+    const liveDhw     = live?.dhw_temp;
+
+    function renderLevel(info, lvl, label, liveTemp) {
+      if (!info) return `<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">No ${label} config active</div>`;
+      const color   = lvl === 'l1' ? 'var(--l1)' : 'var(--l2)';
+      const bgLight = lvl === 'l1' ? '#eff6ff' : '#fef9ec';
+      const slots   = info.slots || [];
+      const idx     = info.current_slot_idx;
+
+      let slotsHtml = `<table class="slots-table" style="margin-top:8px;width:100%">
+        <thead><tr>
+          <th style="width:70px">Start</th>
+          <th style="width:70px">Temp</th>
+          ${liveTemp !== undefined ? `<th style="width:80px">Live</th>` : ''}
+        </tr></thead><tbody>`;
+      slots.forEach((s, i) => {
+        const isActive = i === idx;
+        const end = i < slots.length - 1 ? slots[i+1].start : '00:00';
+        slotsHtml += `<tr class="${isActive ? 'slot-active' : ''}">
+          <td style="font-family:var(--mono);${isActive?'font-weight:700':''}">${s.start} – ${end}</td>
+          <td><span class="temp-chip ${lvl}" style="${isActive?'':''}">${s.temp}°C</span></td>
+          ${liveTemp !== undefined && isActive
+            ? `<td><span class="temp-chip ${Math.abs(liveTemp - s.temp) > 0.5 ? 'diff' : 'live'}">${liveTemp}°C</span></td>`
+            : liveTemp !== undefined ? `<td></td>` : ''}
+        </tr>`;
+      });
+      slotsHtml += `</tbody></table>`;
+
+      return `<div>
+        <div style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${label}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Current Weekconfig: <strong style="color:var(--text)">${info.config}</strong> from Planning: <strong style="color:var(--text)">${info.planning}</strong></div>
+        ${slotsHtml}
+      </div>`;
+    }
+
+    let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${d.now}</div>`;
+
+    if (live?.error) {
+      html += `<div class="alert alert-warn" style="margin-bottom:12px;">Viessmann read error: ${live.error}</div>`;
+    }
+
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">`;
+    html += `<div style="border:1px solid var(--l1);border-radius:var(--radius);padding:16px;background:#eff6ff;">
+      ${renderLevel(d.l1, 'l1', 'Heating', liveHeating)}
+    </div>`;
+    html += `<div style="border:1px solid var(--l2);border-radius:var(--radius);padding:16px;background:#fef9ec;">
+      ${renderLevel(d.l2, 'l2', 'DHW', liveDhw)}
+    </div>`;
+    html += `</div>`;
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// WEEKCONFIGS
+// ─────────────────────────────────────────────────────────────────────────
+async function loadWeekconfigs() {
+  try {
+    const { data } = await api("GET", "/weekconfigs");
+    state.wc = data.weekconfigs || {};
+    renderWcList();
+    if (state.wcCurrent && (state.wc[state.wcCurrent] || state.wcIsNew)) renderWcDetail();
+  } catch(e) { toast(e.message, "err"); }
+}
+
+function renderWcList() {
+  const el    = document.getElementById("wcList");
+  const names = Object.keys(state.wc);
+  if (!names.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-text">No configs yet</div></div>`;
+    return;
+  }
+  el.innerHTML = names.map(n => {
+    const lvl    = state.wc[n]?.level;
+    const lvlTag = lvl ? `<span class="level-badge ${lvl.toLowerCase()}">${lvl === 'L1' ? 'Heating' : 'DHW'}</span> ` : '';
+    return `
+    <div class="item-row${n === state.wcCurrent ? ' active' : ''}" onclick="wcSelect('${n}')">
+      <div>
+        <div class="item-name">${n}</div>
+        <div class="item-meta">${lvlTag}${state.wc[n]?.timetable || ''}</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn-icon" title="Rename" onclick="wcRename('${n}');event.stopPropagation()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
+        </button>
+        <button class="btn-icon" title="Copy" onclick="wcCopy('${n}');event.stopPropagation()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M5 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2"/></svg>
+        </button>
+      </div>
+    </div>`; }).join('');
+}
+
+function wcSelect(name) {
+  state.wcCurrent = name;
+  state.wcIsNew   = false;
+  state.wcName    = name;
+  state.wcData    = JSON.parse(JSON.stringify(state.wc[name]));
+  renderWcList();
+  renderWcDetail();
+}
+
+function wcNew() {
+  promptName("New weekconfig", "config-name", name => {
+    if (state.wc[name]) { toast(`'${name}' already exists`, "err"); return; }
+    state.wcCurrent = name;
+    state.wcIsNew   = true;
+    state.wcName    = name;
+    state.wcData    = { level: "L1", timetable: "Mon-Sun", "Mon-Sun": [{"start":"00:00","temp":20}] };
+    renderWcList();
+    renderWcDetail();
+  });
+}
+
+function wcCopyFrom() {
+  const names = Object.keys(state.wc);
+  if (!names.length) { toast("No configs to copy", "err"); return; }
+  if (!state.wcCurrent) { toast("Select a config first", "err"); return; }
+  wcCopy(state.wcCurrent);
+}
+
+function wcCopy(name) {
+  promptName(`Copy '${name}'`, name + "-copy", async newname => {
+    try {
+      await api("POST", `/weekconfigs/${encodeURIComponent(name)}/copy`, {newname});
+      await loadWeekconfigs();
+      wcSelect(newname);
+      toast(`Copied to '${newname}'`, "ok");
+    } catch(e) { toast(e.message, "err"); }
+  });
+}
+
+function wcRename(name) {
+  promptName(`Rename '${name}'`, name, async newname => {
+    try {
+      await api("POST", `/weekconfigs/${encodeURIComponent(name)}/rename`, {newname});
+      const wasCurrent = state.wcCurrent === name;
+      await loadWeekconfigs();
+      if (wasCurrent) wcSelect(newname);
+      toast(`Renamed to '${newname}'`, "ok");
+    } catch(e) { toast(e.message, "err"); }
+  });
+}
+
+async function wcDelete() {
+  if (!state.wcCurrent || state.wcIsNew) return;
+  confirm("Delete config", `Delete '${state.wcCurrent}'?`, async () => {
+    try {
+      await api("DELETE", `/weekconfigs/${encodeURIComponent(state.wcCurrent)}`);
+      state.wcCurrent = null; state.wcData = null; state.wcIsNew = false;
+      await loadWeekconfigs();
+      renderWcDetail();
+      toast("Deleted", "ok");
+    } catch(e) { toast(e.message, "err"); }
+  });
+}
+
+async function wcSave() {
+  const name = state.wcName?.trim();
+  if (!name) { document.getElementById("wcNameErr").textContent = "Name required"; return; }
+  document.getElementById("wcNameErr").textContent = "";
+  try {
+    const isRename = !state.wcIsNew && name !== state.wcCurrent;
+    if (isRename) {
+      await api("POST", `/weekconfigs/${encodeURIComponent(state.wcCurrent)}/rename`, {newname: name});
+    }
+    await api("POST", `/weekconfigs/${encodeURIComponent(name)}?overwrite=true`, state.wcData);
+    state.wcIsNew   = false;
+    state.wcCurrent = name;
+    await loadWeekconfigs();
+    renderWcDetail();
+    toast("Saved", "ok");
+  } catch(e) { toast(e.message, "err"); }
+}
+
+function renderWcDetail() {
+  const hdr = document.getElementById("wcDetailHeader");
+  const det = document.getElementById("wcDetail");
+  if (!state.wcCurrent && !state.wcIsNew) {
+    hdr.style.display = "none";
+    det.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Select a config to edit</div></div>`;
+    return;
+  }
+  hdr.style.display = "";
+  document.getElementById("wcDetailName").value = state.wcName || state.wcCurrent || "";
+  document.getElementById("wcDeleteBtn").style.display = state.wcIsNew ? "none" : "";
+  det.innerHTML = renderWcEditor(state.wcData);
+}
+
+function renderWcEditor(cfg) {
+  if (!cfg) return '';
+  const tt    = cfg.timetable || "Mon-Sun";
+  const level = cfg.level || "L1";
+  const keys  = TT_KEYS[tt] || ["Mon-Sun"];
+  const resolution = state.settings.resolution || 10;
+
+  let html = `<div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" style="max-width:220px" onchange="wcChangeLevel(this.value)">
+      <option value="L1"${level==='L1'?' selected':''}>Heating (5–25°C)</option>
+      <option value="L2"${level==='L2'?' selected':''}>DHW (55–75°C)</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Timetable type</label>
+    <select class="form-select" style="max-width:240px" onchange="wcChangeTT(this.value)">
+      ${["Mon-Sun","Mon-Fri, Sat, Sun","Mon, ..., Sun"].map(t =>
+        `<option value="${t}"${t===tt?' selected':''}>${t}</option>`).join('')}
+    </select>
+  </div>`;
+
+  keys.forEach(key => {
+    const slots = cfg[key] || [];
+    html += `<div style="margin-bottom:20px;">
+      <div class="form-section-title">${key}</div>
+      <table class="slots-table" id="slots-${key}">
+        <thead><tr>
+          <th style="width:90px">Start</th>
+          <th style="width:80px">Temp (°C)</th>
+          <th style="width:30px"></th>
+        </tr></thead>
+        <tbody>${slots.map((s, i) => wcSlotRow(key, i, s, resolution)).join('')}</tbody>
+      </table>
+      <button class="btn btn-secondary btn-sm" style="margin-top:6px"
+        onclick="wcAddSlot('${key}')">+ Add event</button>
+    </div>`;
+  });
+  return html;
+}
+
+function wcSlotRow(key, i, slot, resolution) {
+  const locked  = slot.start === '00:00';
+  const isL2    = state.wcData?.level === 'L2';
+  const minTemp = isL2 ? 55 : 5;
+  const maxTemp = isL2 ? 75 : 25;
+  const defTemp = isL2 ? 60 : 20;
+  return `<tr id="slot-${key}-${i}">
+    <td><input type="text" value="${slot.start}" maxlength="5"
+      ${locked ? 'readonly style="opacity:.5;cursor:not-allowed;"' : ''}
+      oninput="wcUpdateSlot('${key}',${i},'start',this.value)"
+      onblur="wcBlurTime('${key}',${i},this)" placeholder="HH:MM"></td>
+    <td><input type="number" value="${slot.temp}" min="${minTemp}" max="${maxTemp}"
+      oninput="wcUpdateSlot('${key}',${i},'temp',parseInt(this.value)||${defTemp})"></td>
+    <td><button class="slot-del" ${locked?'disabled style="opacity:.3"':''}
+      onclick="wcDelSlot('${key}',${i})">×</button></td>
+  </tr>`;
+}
+
+function wcChangeTT(newTT) {
+  state.wcData.timetable = newTT;
+  const isL2    = state.wcData?.level === 'L2';
+  const defTemp = isL2 ? (state.settings.default_dhw_temp || 60) : (state.settings.default_heating_temp || 20);
+  const newKeys = TT_KEYS[newTT] || [];
+  newKeys.forEach(k => {
+    if (!state.wcData[k]) state.wcData[k] = [{"start":"00:00","temp":defTemp}];
+  });
+  Object.keys(TT_KEYS).forEach(t => {
+    if (t !== newTT) TT_KEYS[t].forEach(k => {
+      if (newKeys.indexOf(k) === -1) delete state.wcData[k];
+    });
+  });
+  det();
+}
+
+function wcChangeLevel(newLevel) {
+  state.wcData.level = newLevel;
+  const isL2    = newLevel === 'L2';
+  const defTemp = isL2 ? (state.settings.default_dhw_temp || 60) : (state.settings.default_heating_temp || 20);
+  const allKeys = Object.values(TT_KEYS).flat();
+  allKeys.forEach(k => {
+    if (state.wcData[k])
+      state.wcData[k] = state.wcData[k].map(s => ({...s, temp: defTemp}));
+  });
+  det();
+}
+
+function wcUpdateSlot(key, i, field, val) {
+  if (!state.wcData[key]) return;
+  state.wcData[key][i] = {...state.wcData[key][i], [field]: val};
+}
+
+function wcBlurTime(key, i, input) {
+  const v = input.value.trim();
+  if (!/^\d{1,2}:\d{2}$/.test(v)) return;
+  const [h, m] = v.split(':').map(Number);
+  const res = state.settings.resolution || 10;
+  const rounded = Math.round((h*60+m)/res)*res;
+  const nh = Math.floor(rounded/60), nm = rounded%60;
+  const fixed = `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  input.value = fixed;
+  wcUpdateSlot(key, i, 'start', fixed);
+}
+
+function wcAddSlot(key) {
+  if (!state.wcData[key]) state.wcData[key] = [];
+  const slots = state.wcData[key];
+  const res   = state.settings.resolution || 10;
+  const last  = slots.length ? slots[slots.length-1].start : '00:00';
+  const [lh, lm] = last.split(':').map(Number);
+  let next = lh*60 + lm + res;
+  if (next >= 24*60) next = 0;
+  const nh = Math.floor(next/60), nm = next%60;
+  const newStart = `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  const isL2    = state.wcData?.level === 'L2';
+  const defTemp = isL2 ? (state.settings.default_dhw_temp || 60) : (state.settings.default_heating_temp || 20);
+  state.wcData[key].push({"start": newStart, "temp": defTemp});
+  det();
+}
+
+function wcDelSlot(key, i) {
+  if (!state.wcData[key]) return;
+  if (state.wcData[key][i]?.start === '00:00') return;
+  state.wcData[key].splice(i, 1);
+  det();
+}
+
+function det() {
+  document.getElementById("wcDetail").innerHTML = renderWcEditor(state.wcData);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PLANNINGS
+// ─────────────────────────────────────────────────────────────────────────
+async function loadPlannings() {
+  try {
+    const { data } = await api("GET", "/plannings");
+    state.pl = data.plannings || [];
+    renderPlList();
+    if (state.plCurrent) renderPlDetail();
+  } catch(e) { toast(e.message, "err"); }
+}
+
+function renderPlList() {
+  const el = document.getElementById("plList");
+  if (!state.pl.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-text">No plannings yet</div></div>`;
+    return;
+  }
+  el.innerHTML = state.pl.map(p => {
+    const hasStart = p.start, hasEnd = p.end;
+    const meta = hasStart || hasEnd
+      ? `${hasStart ? p.start.slice(0,10) : '…'} → ${hasEnd ? p.end.slice(0,10) : '…'}`
+      : 'standard (always)';
+    return `<div class="item-row${p.name === state.plCurrent ? ' active' : ''}" onclick="plSelect('${p.name}')">
+      <div>
+        <div class="item-name">${p.name}</div>
+        <div class="item-meta">${p.cycle} · ${meta}</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn-icon" title="Copy" onclick="plCopy('${p.name}');event.stopPropagation()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M5 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function plSelect(name) {
+  state.plCurrent = name;
+  state.plIsNew   = false;
+  state.plData    = JSON.parse(JSON.stringify(state.pl.find(p => p.name === name)));
+  renderPlList();
+  renderPlDetail();
+}
+
+function plNew() {
+  promptName("New planning", "planning-name", name => {
+    if (state.pl.find(p => p.name === name)) { toast(`'${name}' already exists`, "err"); return; }
+    state.plCurrent = name;
+    state.plIsNew   = true;
+    state.plData    = {name, cycle: "two-weeks-iso", events: []};
+    renderPlList();
+    renderPlDetail();
+  });
+}
+
+function plCopyFrom() {
+  if (!state.plCurrent) { toast("Select a planning first", "err"); return; }
+  plCopy(state.plCurrent);
+}
+
+function plCopy(name) {
+  promptName(`Copy '${name}'`, name + "-copy", async newname => {
+    try {
+      await api("POST", `/plannings/${encodeURIComponent(name)}/copy`, {newname});
+      await loadPlannings();
+      plSelect(newname);
+      toast(`Copied to '${newname}'`, "ok");
+    } catch(e) { toast(e.message, "err"); }
+  });
+}
+
+async function plDelete() {
+  if (!state.plCurrent || state.plIsNew) return;
+  confirm("Delete planning", `Delete '${state.plCurrent}'?`, async () => {
+    try {
+      await api("DELETE", `/plannings/${encodeURIComponent(state.plCurrent)}`);
+      state.plCurrent = null; state.plData = null; state.plIsNew = false;
+      await loadPlannings();
+      renderPlDetail();
+      toast("Deleted", "ok");
+    } catch(e) { toast(e.message, "err"); }
+  });
+}
+
+async function plSave() {
+  const name = document.getElementById("plDetailName").value.trim();
+  if (!name) { document.getElementById("plNameErr").textContent = "Name required"; return; }
+  document.getElementById("plNameErr").textContent = "";
+  state.plData.name = name;
+
+  const body = {...state.plData, _exclude_name: state.plIsNew ? null : state.plCurrent};
+  try {
+    const { data } = await api("POST", "/plannings/validate", body);
+    if (!data.valid) {
+      document.getElementById("plValidationBar").innerHTML =
+        `<div class="alert alert-error" style="margin:0 18px 4px;">${data.errors.join('<br>')}</div>`;
+      return;
+    }
+    document.getElementById("plValidationBar").innerHTML = "";
+  } catch(e) { toast(e.message, "err"); return; }
+
+  try {
+    const isRename = !state.plIsNew && name !== state.plCurrent;
+    if (isRename) {
+      await api("POST", `/plannings/${encodeURIComponent(state.plCurrent)}/rename`, {newname: name});
+    }
+    await api("POST", `/plannings/${encodeURIComponent(name)}?overwrite=true`, state.plData);
+    state.plIsNew   = false;
+    state.plCurrent = name;
+    await loadPlannings();
+    renderPlDetail();
+    toast("Saved", "ok");
+  } catch(e) { toast(e.message, "err"); }
+}
+
+function renderPlDetail() {
+  const hdr = document.getElementById("plDetailHeader");
+  const det = document.getElementById("plDetail");
+  if (!state.plData) {
+    hdr.style.display = "none";
+    det.innerHTML = `<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">Select a planning to edit</div></div>`;
+    return;
+  }
+  hdr.style.display = "";
+  document.getElementById("plDetailName").value = state.plData.name || "";
+  document.getElementById("plDeleteBtn").style.display = state.plIsNew ? "none" : "";
+  det.innerHTML = renderPlEditor(state.plData);
+
+  mkDatePicker("pl-start", state.plData.start || null, v => { state.plData.start = v; });
+  mkDatePicker("pl-end",   state.plData.end   || null, v => { state.plData.end   = v; });
+}
+
+function renderPlEditor(p) {
+  const wcs = Object.keys(state.wc);
+  const cycle = p.cycle || "two-weeks-iso";
+  const events = p.events || [];
+
+  let html = `
+    <div class="form-group">
+      <label class="form-label">Cycle</label>
+      <select class="form-select" style="max-width:200px" onchange="plSetCycle(this.value)">
+        ${CYCLES.map(c => `<option value="${c}"${c===cycle?' selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>`;
+
+  if (cycle === "two-weeks-seq") {
+    html += `<div class="form-group">
+      <label class="form-label">Reference date</label>
+      <input class="form-input" type="date" style="max-width:180px" value="${p.ref_date||''}"
+        oninput="state.plData.ref_date=this.value">
+    </div>`;
+  }
+
+  html += `<div class="form-row" style="margin-bottom:16px;">
+    <div class="form-group">
+      <label class="form-label">Start (optional)</label>
+      <div id="pl-start"></div>
+      <div class="form-hint">Leave empty for standard (always active) planning</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">End (optional)</label>
+      <div id="pl-end"></div>
+    </div>
+  </div>`;
+
+  html += `<div class="form-section-title" style="margin-bottom:10px;">Events</div>`;
+
+  if (wcs.length === 0) {
+    html += `<div class="alert alert-warn">No weekconfigs defined yet. Create one first.</div>`;
+  }
+
+  html += `<table class="events-table">
+    <thead><tr>
+      <th style="width:90px">Level</th>
+      <th style="width:110px">Day</th>
+      <th style="width:64px">Time</th>
+      <th style="width:44px">Week</th>
+      <th>Weekconfig</th>
+      <th style="width:32px"></th>
+    </tr></thead>
+    <tbody id="pl-events-body">`;
+
+  events.forEach((ev, i) => {
+    const isTwo = cycle !== "one-week";
+    html += `<tr id="plev-${i}">
+      <td><select onchange="plEvSet(${i},'level',parseInt(this.value))">
+        <option value="1"${ev.level===1?' selected':''}>Heating</option>
+        <option value="2"${ev.level===2?' selected':''}>DHW</option>
+      </select></td>
+      <td><select onchange="plEvSet(${i},'day',this.value)">
+        ${DAYS.map(d => `<option value="${d}"${d===ev.day?' selected':''}>${d.charAt(0).toUpperCase()+d.slice(1)}</option>`).join('')}
+      </select></td>
+      <td><input type="text" value="${ev.time||'00:00'}" maxlength="5" style="width:56px"
+        onblur="plEvSet(${i},'time',this.value)"></td>
+      <td><select onchange="plEvSet(${i},'week',this.value)" ${!isTwo?'disabled':''}>
+        <option value="both"${(ev.week||'both')==='both'?' selected':''}>both</option>
+        <option value="odd"${ev.week==='odd'?' selected':''}>odd</option>
+        <option value="even"${ev.week==='even'?' selected':''}>even</option>
+      </select></td>
+      <td><select onchange="plEvSet(${i},'config',this.value)">
+        <option value="">— select —</option>
+        ${wcs.filter(w => { const wl = state.wc[w]?.level; return !wl || wl === (ev.level===1?'L1':'L2'); })
+          .map(w => `<option value="${w}"${ev.config===w?' selected':''}>${w}</option>`).join('')}
+      </select></td>
+      <td><button class="slot-del" onclick="plDelEvent(${i})">×</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  html += `<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="plAddEvent()">+ Add event</button>`;
+  return html;
+}
+
+function plSetCycle(c) {
+  state.plData.cycle = c;
+  renderPlDetail();
+  mkDatePicker("pl-start", state.plData.start || null, v => { state.plData.start = v; });
+  mkDatePicker("pl-end",   state.plData.end   || null, v => { state.plData.end   = v; });
+}
+
+function plEvSet(i, field, val) {
+  if (!state.plData.events[i]) return;
+  state.plData.events[i][field] = val;
+  if (field === 'level') {
+    const evLevel = val === 1 ? 'L1' : 'L2';
+    const cfg = state.plData.events[i].config;
+    if (cfg && state.wc[cfg]?.level && state.wc[cfg].level !== evLevel)
+      state.plData.events[i].config = '';
+    renderPlDetail();
+    mkDatePicker("pl-start", state.plData.start || null, v => { state.plData.start = v; });
+    mkDatePicker("pl-end",   state.plData.end   || null, v => { state.plData.end   = v; });
+  }
+}
+
+function plAddEvent() {
+  state.plData.events.push({day: "monday", time: "00:00", level: 1, week: "both", config: ""});
+  renderPlDetail();
+  mkDatePicker("pl-start", state.plData.start || null, v => { state.plData.start = v; });
+  mkDatePicker("pl-end",   state.plData.end   || null, v => { state.plData.end   = v; });
+}
+
+function plDelEvent(i) {
+  state.plData.events.splice(i, 1);
+  renderPlDetail();
+  mkDatePicker("pl-start", state.plData.start || null, v => { state.plData.start = v; });
+  mkDatePicker("pl-end",   state.plData.end   || null, v => { state.plData.end   = v; });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const [settRes, credsRes] = await Promise.allSettled([
+      api("GET", "/settings"),
+      api("GET", "/credentials"),
+    ]);
+    if (settRes.status === 'fulfilled') {
+      const data = settRes.value.data;
+      state.settings = data;
+      document.getElementById("set-resolution").value   = data.resolution            || 10;
+      document.getElementById("set-heating-temp").value = data.default_heating_temp  || 20;
+      document.getElementById("set-dhw-temp").value     = data.default_dhw_temp      || 60;
+    }
+    if (credsRes.status === 'fulfilled') {
+      const c = credsRes.value.data;
+      document.getElementById("creds-username").value = c.username  || "";
+      document.getElementById("creds-password").value = c.password  || "";
+      document.getElementById("creds-clientid").value = c.client_id || "";
+      document.getElementById("creds-status").innerHTML = c.exists
+        ? `<span class="badge badge-green">File found</span>`
+        : `<span class="badge badge-gray">File not found</span>`;
+    }
+  } catch(e) { toast(e.message, "err"); }
+}
+
+function credsTogglePwd(btn) {
+  const inp = document.getElementById("creds-password");
+  if (inp.type === "password") { inp.type = "text";     btn.textContent = "Hide"; }
+  else                         { inp.type = "password"; btn.textContent = "Show"; }
+}
+
+async function credsSave() {
+  const username  = document.getElementById("creds-username").value.trim();
+  const password  = document.getElementById("creds-password").value;
+  const client_id = document.getElementById("creds-clientid").value.trim();
+  document.getElementById("creds-err").textContent = "";
+  if (!username || !password || !client_id) {
+    document.getElementById("creds-err").textContent = "All fields are required";
+    return;
+  }
+  try {
+    await api("POST", "/credentials", {username, password, client_id});
+    document.getElementById("creds-status").innerHTML = `<span class="badge badge-green">File found</span>`;
+    toast("Credentials saved", "ok");
+  } catch(e) {
+    document.getElementById("creds-err").textContent = e.message;
+    toast(e.message, "err");
+  }
+}
+
+async function settingsSave() {
+  const resolution = parseInt(document.getElementById("set-resolution").value);
+  const ht = parseInt(document.getElementById("set-heating-temp").value);
+  const dt = parseInt(document.getElementById("set-dhw-temp").value);
+  document.getElementById("set-err").textContent = "";
+  if (![1,5,10,20,30,60].includes(resolution)) {
+    document.getElementById("set-err").textContent = "Invalid resolution"; return;
+  }
+  if (ht < 5 || ht > 25) {
+    document.getElementById("set-err").textContent = "Heating temp must be 5–25°C"; return;
+  }
+  if (dt < 55 || dt > 75) {
+    document.getElementById("set-err").textContent = "DHW temp must be 55–75°C"; return;
+  }
+  try {
+    await api("POST", "/settings", {resolution, default_heating_temp: ht, default_dhw_temp: dt});
+    state.settings = {resolution, default_heating_temp: ht, default_dhw_temp: dt};
+    toast("Settings saved", "ok");
+  } catch(e) { toast(e.message, "err"); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// LOGS
+// ─────────────────────────────────────────────────────────────────────────
+let _logsRefreshTimer = null;
+
+function _startLogsAutoRefresh() {
+  _stopLogsAutoRefresh();
+  _logsRefreshTimer = setInterval(loadLogs, 5000);
+}
+function _stopLogsAutoRefresh() {
+  if (_logsRefreshTimer) { clearInterval(_logsRefreshTimer); _logsRefreshTimer = null; }
+}
+
+const LOG_COLORS = {
+  "[ERROR]": "#f87171", "[WARN]": "#fb923c", "[OK]": "#4ade80", "[AUTH]": "#a78bfa",
+  "[UPDATE]": "#38bdf8", "[SKIP]": "#94a3b8", "[L1]": "#60a5fa", "[L2]": "#fbbf24",
+  "[VIESSMANN]": "#c084fc", "[INFO]": "#94a3b8",
+};
+
+function colorLine(line) {
+  const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  for (const [tag, col] of Object.entries(LOG_COLORS)) {
+    if (esc.includes(tag)) return `<span style="color:${col}">${esc}</span>`;
+  }
+  return esc;
+}
+
+async function loadLogs() {
+  const lines = document.getElementById("log-lines").value;
+  try {
+    const { data } = await api("GET", `/logs?lines=${lines}`);
+    const pre  = document.getElementById("log-output");
+    const meta = document.getElementById("log-meta");
+    pre.innerHTML = (data.lines || []).map(colorLine).join('\n');
+    meta.textContent = `${data.total || 0} lines total · showing last ${lines}`;
+    if (document.getElementById("log-autoscroll")?.checked)
+      pre.scrollTop = pre.scrollHeight;
+  } catch(e) { /* silent */ }
+}
+
+async function clearLogs() {
+  confirm("Clear logs", "Delete all log files?", async () => {
+    try { await api("POST", "/logs/clear"); loadLogs(); toast("Logs cleared", "ok"); }
+    catch(e) { toast(e.message, "err"); }
+  });
+}
+
+async function copyLogs(btn) {
+  const text = document.getElementById("log-output").textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = btn.textContent; btn.textContent = "✓ Copied";
+    setTimeout(() => btn.textContent = orig, 1500);
+  } catch(e) { toast("Copy failed", "err"); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ADD-ON
+// ─────────────────────────────────────────────────────────────────────────
+async function loadAddon() {
+  const el = document.getElementById("addonBody");
+  try {
+    const [addonRes, verbRes] = await Promise.allSettled([
+      api("GET", "/addon"),
+      api("GET", "/addon/verbosity"),
+    ]);
+    const d = addonRes.status === 'fulfilled' ? addonRes.value.data : {};
+    const v = verbRes.status  === 'fulfilled' ? verbRes.value.data  : {verbosity: 0};
+
+    let html = '';
+
+    if (d.ha_available) {
+      html += `<div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-title">HA Add-on version</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="addonCheckUpdate()">Check update</button>
+            ${d.update_available ? `<button class="btn btn-primary btn-sm" onclick="addonUpdate()">Update</button>` : ''}
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="form-row">
+            <div><div class="form-label">Installed</div><div>${d.version || '—'}</div></div>
+            <div><div class="form-label">Available</div><div>${d.version_latest || '—'}</div></div>
+          </div>
+          ${d.update_available ? `<div class="alert alert-warn" style="margin-top:8px;">Update available: ${d.version_latest}</div>` : ''}
+        </div>
+      </div>`;
+    } else {
+      html += `<div class="alert alert-warn">Not running inside Home Assistant.</div>`;
+    }
+
+    html += `<div class="card">
+      <div class="card-header"><span class="card-title">Verbosity</span></div>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <select class="form-select" id="addon-verbosity" style="max-width:100px">
+            ${[0,1,2,3,4].map(n => `<option value="${n}"${n==v.verbosity?' selected':''}>${n}</option>`).join('')}
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="addonSetVerbosity()">Apply</button>
+        </div>
+        <div class="form-hint">0=minimal · 1=details · 2=cycle candidates · 3=API calls · 4=debug</div>
+      </div>
+    </div>`;
+
+    html += `<div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">Resolution</span></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--muted);">Change resolution in the <strong>Settings</strong> tab.</p>
+      </div>
+    </div>`;
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+  }
+}
+
+async function addonCheckUpdate() {
+  try {
+    const { data } = await api("POST", "/addon/check-update");
+    toast(data.update_available ? `Update available: ${data.version_latest}` : "Up to date", "ok");
+    loadAddon();
+  } catch(e) { toast(e.message, "err"); }
+}
+
+async function addonUpdate() {
+  confirm("Update add-on", "The add-on will restart.", async () => {
+    try { await api("POST", "/addon/update"); toast("Update triggered", "ok"); }
+    catch(e) { toast(e.message, "err"); }
+  });
+}
+
+async function addonSetVerbosity() {
+  const level = parseInt(document.getElementById("addon-verbosity").value);
+  try {
+    await api("POST", "/addon/verbosity", {verbosity: level});
+    toast("Verbosity updated", "ok");
+  } catch(e) { toast(e.message, "err"); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SERVICE
+// ─────────────────────────────────────────────────────────────────────────
+let _serviceAction = null;
+async function loadServiceStatus() {
+  try {
+    const { data } = await api("GET", "/service/status");
+    const txt = document.getElementById("service-status-text");
+    const sub = document.getElementById("service-status-sub");
+    const btn = document.getElementById("btn-service-action");
+    document.getElementById("btn-service-confirm").style.display = "none";
+    document.getElementById("service-output").style.display = "none";
+    if (data.active) {
+      txt.style.color = "var(--green)"; txt.textContent = "✓ Service actif";
+      sub.textContent = "Le scheduler tourne en arrière-plan via launchd.";
+      _serviceAction = "uninstall";
+      btn.textContent = "Désinstaller"; btn.className = "btn btn-danger";
+    } else {
+      txt.style.color = "var(--muted)"; txt.textContent = "○ Service inactif";
+      sub.textContent = data.plist_exists ? "plist présent mais service arrêté." : "Pas encore installé.";
+      _serviceAction = "install";
+      btn.textContent = "Installer"; btn.className = "btn btn-primary";
+    }
+    btn.style.display = "";
+  } catch(e) { /* macOS only */ }
+}
+
+function serviceAction() {
+  const isInstall = _serviceAction === "install";
+  document.getElementById("btn-service-action").style.display = "none";
+  const conf = document.getElementById("btn-service-confirm");
+  conf.style.display = "flex";
+}
+
+async function serviceActionConfirmed() {
+  document.getElementById("btn-service-confirm").style.display = "none";
+  try {
+    const { data } = await api("POST", `/service/${_serviceAction}`);
+    const out = document.getElementById("service-output");
+    out.textContent = data.output || "(no output)";
+    out.style.display = "block";
+    loadServiceStatus();
+    toast(data.ok ? "OK" : "Error", data.ok ? "ok" : "err");
+  } catch(e) { toast(e.message, "err"); }
+}
+
+function serviceActionCancelled() {
+  document.getElementById("btn-service-confirm").style.display = "none";
+  document.getElementById("btn-service-action").style.display = "";
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const { data } = await api("GET", "/context");
+    const ctx = data.context || "";
+    if (ctx.startsWith("mac-")) {
+      document.getElementById("nav-service").style.display = "";
+    }
+    await loadSettings();
+  } catch(e) { /* ignore */ }
+  loadPlanning();
+}
+
+document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".dtp-wrap")) {
+    document.querySelectorAll(".dtp-cal.open").forEach(c => c.classList.remove("open"));
+  }
+});
+</script>
+</body>
+</html>
