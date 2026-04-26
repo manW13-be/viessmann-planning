@@ -161,7 +161,7 @@ esac
 init_schedules() {
     mkdir -p "$SCHEDULES_DIR"
     local count
-    count=$(ls "$SCHEDULES_DIR"/*.json 2>/dev/null | wc -l | tr -d ' ')
+    count=$(find "$SCHEDULES_DIR" -maxdepth 1 -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
     log "Schedules: ${count} file(s)"
 }
 
