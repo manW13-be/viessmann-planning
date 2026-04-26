@@ -36,7 +36,7 @@ TEST_IMAGE="addon_test_viessmann_planning"
 TEST_CONTAINER="addon_test_viessmann_planning"
 CFG_PORT=8098
 
-CONFIG_DIR="$(realpath /config 2>/dev/null || echo /config)"
+CONFIG_DIR="/mnt/data/supervisor/homeassistant"
 
 log() { echo "[TEST-START] $(date '+%d/%m/%Y %H:%M:%S') — $*"; }
 die() { echo "[TEST-START] ERROR: $*" >&2; exit 1; }
