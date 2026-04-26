@@ -584,7 +584,7 @@ def get_timeline(days: int = 14) -> dict:
 
 def get_weekconfig_status() -> dict:
     """
-    Returns current-day schedule for L1 and L2, plus active slot index.
+    Returns current-day schedule for Heating and DHW, plus active slot index.
     Optionally fetches live Viessmann setpoints.
     """
     try:

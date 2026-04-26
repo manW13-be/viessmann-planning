@@ -323,12 +323,39 @@ elif [ "$RUN_CFG" = true ]; then
     LOG_FILE="${SCHEDULES_DIR}/viessmann-planning.log"
     CFG_URL=$(get_cfg_url)
     log "Configurator on ${CFG_HOST}:${CFG_PORT} — $CFG_URL"
-    VIESSMANN_CONTEXT="$CONTEXT" \
-    VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
-    VIESSMANN_CREDS_FILE="$CREDS_FILE" \
-    VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
-    $PYTHON "$CFG_SCRIPT" --host "$CFG_HOST" --port "$CFG_PORT" \
-        $( [ "$CONTEXT" != "mac-shell" ] && echo "--no-browser" )
+
+    CFG_PID_FILE="${SCHEDULES_DIR}/viessmann-cfg-shell.pid"
+
+    if [[ "$CONTEXT" == mac-shell || "$CONTEXT" == ha-shell || "$CONTEXT" == ha-docker-test ]]; then
+        if [ -f "$CFG_PID_FILE" ]; then
+            OLD_PID=$(cat "$CFG_PID_FILE" 2>/dev/null || true)
+            if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+                if ps -p "$OLD_PID" -o args= 2>/dev/null | grep -q "viessmann-planning-cfg"; then
+                    log "Stopping previous cfg server (PID $OLD_PID)..."
+                    kill "$OLD_PID" 2>/dev/null || true
+                    sleep 1
+                fi
+            fi
+            rm -f "$CFG_PID_FILE"
+        fi
+        CFG_FLAGS=(--host "$CFG_HOST" --port "$CFG_PORT")
+        if [ "$CONTEXT" != "mac-shell" ]; then CFG_FLAGS+=(--no-browser); fi
+        VIESSMANN_CONTEXT="$CONTEXT" \
+        VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
+        VIESSMANN_CREDS_FILE="$CREDS_FILE" \
+        VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
+        $PYTHON "$CFG_SCRIPT" "${CFG_FLAGS[@]}" &
+        CFG_PID=$!
+        echo "$CFG_PID" > "$CFG_PID_FILE"
+        trap 'rm -f "$CFG_PID_FILE"; exit' INT TERM EXIT
+        wait "$CFG_PID"
+    else
+        VIESSMANN_CONTEXT="$CONTEXT" \
+        VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
+        VIESSMANN_CREDS_FILE="$CREDS_FILE" \
+        VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
+        $PYTHON "$CFG_SCRIPT" --host "$CFG_HOST" --port "$CFG_PORT" --no-browser
+    fi
 
 else
     init_schedules

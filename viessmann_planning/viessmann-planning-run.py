@@ -2,19 +2,19 @@
 """
 viessmann-planning-run.py  v1.0
 ================================
-Manages Viessmann heating (L1) and DHW/ECS (L2) setpoints from two JSON files:
+Manages Viessmann Heating and DHW/ECS setpoints from two JSON files:
 
     plannings.json   — all plannings (standard + exceptions)
     weekconfigs.json — all setpoint configurations
 
-L1 = heating circuit (comfort temperature, 5–25°C)
-L2 = domestic hot water / ECS (target temperature, 55–75°C)
+Heating = heating circuit (comfort temperature, 5–25°C)
+DHW     = domestic hot water / ECS (target temperature, 55–75°C)
 
-L1 and L2 are independent — L2 never overrides L1.
-A planning can define L1 events, L2 events, or both.
+Heating and DHW are independent — DHW never overrides Heating.
+A planning can define Heating events, DHW events, or both.
 
 At each run:
-  1. Resolve active weekconfig for L1 and L2 (via planning precedence)
+  1. Resolve active weekconfig for Heating and DHW (via planning precedence)
   2. Find current time slot → target temperature
   3. Read current setpoint from Viessmann API
   4. Update only if different
@@ -94,7 +94,8 @@ VERBOSITY = 0
 
 def log(msg: str, level: int = 0):
     if VERBOSITY >= level:
-        print(msg, flush=True)
+        ts = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        print(f"[{ts}] {msg}", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -494,7 +495,7 @@ _load_api_stats()
 
 def log_api_stats():
     total = _api_stats["GET"] + _api_stats["SET"]
-    log(f"[API] {total} calls ({_api_stats['GET']} GET, {_api_stats['SET']} SET)")
+    log(f"[API] {total} calls total ({_api_stats['GET']} GET, {_api_stats['SET']} SET) — cumulative since first run")
 
 
 def save_api_stats():
@@ -606,20 +607,20 @@ def apply_l1_heating(device, cfg: dict, now: datetime.datetime, config_name: str
     """Check and apply heating setpoint. Returns True if updated."""
     target = get_current_slot_temp(cfg, now)
     if target is None:
-        log("[WARN] L1: could not resolve target temperature")
+        log("[WARN] Heating: could not resolve target temperature")
         return False
 
     current = get_heating_setpoint(device)
-    log(f"[L1]   Heating: config={config_name}, target={target}°C"
+    log(f"[Heating] config={config_name}, target={target}°C"
         + (f", current={current}°C" if current is not None else ", current=?"))
 
     if current is not None and abs(float(current) - float(target)) <= 0.1:
-        log(f"[SKIP] L1: heating already at {target}°C")
+        log(f"[SKIP] Heating: already at {target}°C")
         return False
 
-    log(f"[UPDATE] L1: setting heating to {target}°C")
+    log(f"[UPDATE] Heating: setting to {target}°C")
     set_heating_setpoint(device, target)
-    log(f"[OK]   L1: heating setpoint → {target}°C")
+    log(f"[OK]   Heating: setpoint → {target}°C")
     return True
 
 
@@ -627,20 +628,20 @@ def apply_l2_dhw(device, cfg: dict, now: datetime.datetime, config_name: str) ->
     """Check and apply DHW setpoint. Returns True if updated."""
     target = get_current_slot_temp(cfg, now)
     if target is None:
-        log("[WARN] L2: could not resolve target temperature")
+        log("[WARN] DHW: could not resolve target temperature")
         return False
 
     current = get_dhw_setpoint(device)
-    log(f"[L2]   DHW:     config={config_name}, target={target}°C"
+    log(f"[DHW]     config={config_name}, target={target}°C"
         + (f", current={current}°C" if current is not None else ", current=?"))
 
     if current is not None and abs(float(current) - float(target)) <= 0.1:
-        log(f"[SKIP] L2: DHW already at {target}°C")
+        log(f"[SKIP] DHW: already at {target}°C")
         return False
 
-    log(f"[UPDATE] L2: setting DHW to {target}°C")
+    log(f"[UPDATE] DHW: setting to {target}°C")
     set_dhw_setpoint(device, target)
-    log(f"[OK]   L2: DHW setpoint → {target}°C")
+    log(f"[OK]   DHW: setpoint → {target}°C")
     return True
 
 
@@ -657,19 +658,19 @@ def verify(device, l1_cfg: dict | None, l2_cfg: dict | None, now: datetime.datet
         target  = get_current_slot_temp(l1_cfg, now)
         current = get_heating_setpoint(device)
         if target is not None and current is not None and abs(current - target) > 0.5:
-            log(f"[MISMATCH] L1 heating: expected={target}°C actual={current}°C")
+            log(f"[MISMATCH] Heating: expected={target}°C actual={current}°C")
             all_ok = False
         else:
-            log(f"[OK]   L1 heating verified: {current}°C", 1)
+            log(f"[OK]   Heating verified: {current}°C", 1)
 
     if l2_cfg is not None:
         target  = get_current_slot_temp(l2_cfg, now)
         current = get_dhw_setpoint(device)
         if target is not None and current is not None and abs(current - target) > 0.5:
-            log(f"[MISMATCH] L2 DHW: expected={target}°C actual={current}°C")
+            log(f"[MISMATCH] DHW: expected={target}°C actual={current}°C")
             all_ok = False
         else:
-            log(f"[OK]   L2 DHW verified: {current}°C", 1)
+            log(f"[OK]   DHW verified: {current}°C", 1)
 
     if all_ok:
         log("[OK]   Verification passed.", 1)
@@ -894,9 +895,9 @@ def main():
     l1_cfg_name, l1_pl_name = select_config_for_level(active_pls, 1, now, weekconfigs)
     l2_cfg_name, l2_pl_name = select_config_for_level(active_pls, 2, now, weekconfigs)
 
-    log(f"[INFO] L1 (heating): {l1_cfg_name or '—'}"
+    log(f"[INFO] Heating: {l1_cfg_name or '—'}"
         + (f" (from {l1_pl_name})" if l1_pl_name else ""))
-    log(f"[INFO] L2 (DHW/ECS): {l2_cfg_name or '—'}"
+    log(f"[INFO] DHW:     {l2_cfg_name or '—'}"
         + (f" (from {l2_pl_name})" if l2_pl_name else ""))
 
     if not l1_cfg_name and not l2_cfg_name:
@@ -908,8 +909,8 @@ def main():
     l1_temp = get_current_slot_temp(l1_cfg, now) if l1_cfg else None
     l2_temp = get_current_slot_temp(l2_cfg, now) if l2_cfg else None
 
-    log(f"[INFO] Target L1: {l1_temp}°C" if l1_temp else "[INFO] Target L1: —")
-    log(f"[INFO] Target L2: {l2_temp}°C" if l2_temp else "[INFO] Target L2: —")
+    log(f"[INFO] Target Heating: {l1_temp}°C" if l1_temp else "[INFO] Target Heating: —")
+    log(f"[INFO] Target DHW:     {l2_temp}°C" if l2_temp else "[INFO] Target DHW:     —")
 
     if args.date:
         log("[MODE] Simulation — skipping API connection.")
@@ -926,13 +927,13 @@ def main():
         try:
             l1_updated = apply_l1_heating(device, l1_cfg, now, l1_cfg_name)
         except Exception as e:
-            log(f"[ERROR] L1 heating apply failed: {e}")
+            log(f"[ERROR] Heating apply failed: {e}")
 
     if l2_cfg:
         try:
             l2_updated = apply_l2_dhw(device, l2_cfg, now, l2_cfg_name)
         except Exception as e:
-            log(f"[ERROR] L2 DHW apply failed: {e}")
+            log(f"[ERROR] DHW apply failed: {e}")
 
     updated_count = sum([l1_updated, l2_updated])
     unchanged_count = sum([l1_cfg is not None and not l1_updated,

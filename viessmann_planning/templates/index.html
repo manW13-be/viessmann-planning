@@ -868,7 +868,7 @@ async function loadPlanning() {
 
       function renderLvlRow(row, lvl, lvlColor) {
         let r = `<tr>`;
-        r += `<td style="padding:8px;font-weight:600;font-size:12px;color:${lvlColor};border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);">${lvl === 'l1' ? 'L1 — Heat' : 'L2 — DHW'}</td>`;
+        r += `<td style="padding:8px;font-weight:600;font-size:12px;color:${lvlColor};border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);">${lvl === 'l1' ? 'Heating' : 'DHW'}</td>`;
         r += `<td style="border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);"></td>`;
         let cur = null;
         row.forEach(cell => {
@@ -1582,7 +1582,7 @@ function _stopLogsAutoRefresh() {
 
 const LOG_COLORS = {
   "[ERROR]": "#f87171", "[WARN]": "#fb923c", "[OK]": "#4ade80", "[AUTH]": "#a78bfa",
-  "[UPDATE]": "#38bdf8", "[SKIP]": "#94a3b8", "[L1]": "#60a5fa", "[L2]": "#fbbf24",
+  "[UPDATE]": "#38bdf8", "[SKIP]": "#94a3b8", "[Heating]": "#60a5fa", "[DHW]": "#fbbf24",
   "[VIESSMANN]": "#c084fc", "[INFO]": "#94a3b8",
 };
 
