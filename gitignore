@@ -1,0 +1,14 @@
+viessmann_credentials.json
+viessmann_token.save
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.log.1
+*.bak
+schedules/
+logs/
+venv/
+dist/
+.claude/

@@ -12,7 +12,7 @@ cd "$REPO_DIR"
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 echo "[FETCH] Pulling from GitHub ($BRANCH)..."
-git pull origin "$BRANCH"
+git pull --rebase origin "$BRANCH"
 
 # Synchro .gitignore → gitignore (visible depuis Finder/Samba)
 if [ -f ".gitignore" ]; then
