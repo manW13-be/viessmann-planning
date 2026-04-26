@@ -13,6 +13,12 @@
   "ingress_port": 8098,
   "panel_icon": "mdi:radiator",
   "panel_title": "Viessmann Planning",
+  "map": [
+    {
+      "type": "config",
+      "read_only": false
+    }
+  ],
   "options": {
     "verbosity": 0
   },
