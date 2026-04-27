@@ -1,7 +1,7 @@
 {
   "name": "Viessmann Planning",
   "description": "Manages Viessmann heating and DHW schedules from two-week cycle plans",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "slug": "viessmann_planning",
   "homeassistant_api": true,
   "hassio_api": true,

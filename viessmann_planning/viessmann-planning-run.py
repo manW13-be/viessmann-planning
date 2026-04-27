@@ -730,15 +730,15 @@ def push_ha_sensors(l1_cfg_name: str | None, l2_cfg_name: str | None,
         sensors.append(("sensor.viessmann_planning_heating_target", {
             "state": str(l1_temp),
             "attributes": {"friendly_name": "Viessmann Planning — chauffage consigne",
-                           "unit_of_measurement": "°C", "icon": "mdi:radiator",
-                           "config": l1_cfg_name or "—"},
+                           "unit_of_measurement": "°C", "state_class": "measurement",
+                           "icon": "mdi:radiator", "config": l1_cfg_name or "—"},
         }))
     if l2_temp is not None:
         sensors.append(("sensor.viessmann_planning_dhw_target", {
             "state": str(l2_temp),
-            "attributes": {"friendly_name": "Viessmann Planning — ECS consigne",
-                           "unit_of_measurement": "°C", "icon": "mdi:water-boiler",
-                           "config": l2_cfg_name or "—"},
+            "attributes": {"friendly_name": "Viessmann Planning — DHW consigne",
+                           "unit_of_measurement": "°C", "state_class": "measurement",
+                           "icon": "mdi:water-boiler", "config": l2_cfg_name or "—"},
         }))
     if latest_v:
         sensors.append(("sensor.viessmann_planning_latest_version", {
