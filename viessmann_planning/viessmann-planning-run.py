@@ -86,8 +86,8 @@ VALID_RESOLUTIONS = (1, 5, 10, 20, 30, 60)
 
 HEATING_TEMP_MIN = 5
 HEATING_TEMP_MAX = 25
-DHW_TEMP_MIN     = 55
-DHW_TEMP_MAX     = 75
+DHW_TEMP_MIN     = 10
+DHW_TEMP_MAX     = 60
 
 VERBOSITY = 0
 
@@ -138,7 +138,7 @@ def load_settings() -> dict:
 # ---------------------------------------------------------------------------
 
 def _validate_slot(slot: object, cfg_name: str, day_key: str, idx: int,
-                   resolution: int = 10) -> str | None:
+                   resolution: int = 10, temp_min: int = None, temp_max: int = None) -> str | None:
     if not isinstance(slot, dict):
         return f"[VALIDATION] '{cfg_name}'/'{day_key}' slot #{idx}: expected dict"
     for field in ("start", "temp"):
@@ -156,11 +156,13 @@ def _validate_slot(slot: object, cfg_name: str, day_key: str, idx: int,
                     f"time {start} not aligned to {resolution}-minute resolution")
     except ValueError:
         return f"[VALIDATION] '{cfg_name}'/'{day_key}' slot #{idx}: invalid time '{start}'"
+    t_min = HEATING_TEMP_MIN if temp_min is None else temp_min
+    t_max = DHW_TEMP_MAX     if temp_max is None else temp_max
     try:
         temp = int(slot["temp"])
-        if not (HEATING_TEMP_MIN <= temp <= DHW_TEMP_MAX):
+        if not (t_min <= temp <= t_max):
             return (f"[VALIDATION] '{cfg_name}'/'{day_key}' slot #{idx}: "
-                    f"temp {temp} out of allowed range {HEATING_TEMP_MIN}–{DHW_TEMP_MAX}")
+                    f"temp {temp} out of allowed range {t_min}–{t_max}")
     except (TypeError, ValueError):
         return f"[VALIDATION] '{cfg_name}'/'{day_key}' slot #{idx}: 'temp' must be an integer"
     return None
@@ -176,6 +178,10 @@ def validate_weekconfig(cfg_name: str, cfg: object, resolution: int = 10) -> lis
         errors.append(f"[VALIDATION] '{cfg_name}': unknown timetable '{tt}'")
         return errors
 
+    level = cfg.get("level", "L1")
+    t_min = DHW_TEMP_MIN if level == "L2" else HEATING_TEMP_MIN
+    t_max = DHW_TEMP_MAX if level == "L2" else HEATING_TEMP_MAX
+
     required = TIMETABLE_REQUIRED_KEYS[tt]
     for key in required:
         if key not in cfg:
@@ -189,7 +195,7 @@ def validate_weekconfig(cfg_name: str, cfg: object, resolution: int = 10) -> lis
             if slots[0].get("start") != "00:00":
                 errors.append(f"[VALIDATION] '{cfg_name}'/'{key}': first slot must start at 00:00")
             for i, s in enumerate(slots):
-                err = _validate_slot(s, cfg_name, key, i, resolution)
+                err = _validate_slot(s, cfg_name, key, i, resolution, t_min, t_max)
                 if err:
                     errors.append(err)
     return errors

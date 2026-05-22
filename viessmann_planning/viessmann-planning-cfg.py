@@ -60,6 +60,15 @@ _PROJECT_DIR    = os.path.dirname(_SCRIPT_DIR)
 PLANNING_SCRIPT = os.path.join(_SCRIPT_DIR, "viessmann-planning-run.py")
 
 # ---------------------------------------------------------------------------
+# TEMP RANGE CONSTANTS
+# ---------------------------------------------------------------------------
+
+HEATING_TEMP_MIN = 5
+HEATING_TEMP_MAX = 25
+DHW_TEMP_MIN     = 10
+DHW_TEMP_MAX     = 60
+
+# ---------------------------------------------------------------------------
 # FLASK APP
 # ---------------------------------------------------------------------------
 
@@ -670,11 +679,35 @@ def api_weekconfig_get(name):
     return jsonify(wc[name])
 
 
+def _validate_weekconfig_temps(cfg: dict) -> list[str]:
+    level = cfg.get("level", "L1")
+    t_min = DHW_TEMP_MIN if level == "L2" else HEATING_TEMP_MIN
+    t_max = DHW_TEMP_MAX if level == "L2" else HEATING_TEMP_MAX
+    errors = []
+    for key, val in cfg.items():
+        if not isinstance(val, list):
+            continue
+        for i, slot in enumerate(val):
+            if not isinstance(slot, dict) or "temp" not in slot:
+                continue
+            try:
+                t = int(slot["temp"])
+                if not (t_min <= t <= t_max):
+                    errors.append(
+                        f"Slot '{slot.get('start', '?')}': temp {t} hors de la plage {t_min}–{t_max}°C")
+            except (TypeError, ValueError):
+                errors.append(f"Slot '{slot.get('start', '?')}': temp doit être un entier")
+    return errors
+
+
 @app.route("/api/weekconfigs/<name>", methods=["POST"])
 def api_weekconfig_save(name):
     data = request.get_json()
     if not isinstance(data, dict):
         return jsonify({"error": "Invalid data"}), 400
+    errors = _validate_weekconfig_temps(data)
+    if errors:
+        return jsonify({"error": errors[0]}), 400
     overwrite = request.args.get("overwrite", "false").lower() == "true"
     wc = load_weekconfigs()
     if name in wc and not overwrite:

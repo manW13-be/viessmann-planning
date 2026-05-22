@@ -441,7 +441,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text);
             </div>
             <div class="form-group">
               <label class="form-label">DHW/ECS default (°C)</label>
-              <input class="form-input" type="number" min="55" max="75" id="set-dhw-temp"
+              <input class="form-input" type="number" min="10" max="60" id="set-dhw-temp"
                 style="max-width:100px" placeholder="60">
               <div class="form-hint">Used when adding a new slot to a DHW config.</div>
             </div>
@@ -1158,8 +1158,8 @@ function renderWcEditor(cfg) {
 function wcSlotRow(key, i, slot, resolution) {
   const locked  = slot.start === '00:00';
   const isL2    = state.wcData?.level === 'L2';
-  const minTemp = isL2 ? 55 : 5;
-  const maxTemp = isL2 ? 75 : 25;
+  const minTemp = isL2 ? 10 : 5;
+  const maxTemp = isL2 ? 60 : 25;
   const defTemp = isL2 ? 60 : 20;
   return `<tr id="slot-${key}-${i}">
     <td><input type="text" value="${slot.start}" maxlength="5"
