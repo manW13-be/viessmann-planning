@@ -47,7 +47,7 @@ scripts/
 | Schedules dir (macOS) | `<project_root>/schedules/` |
 | Schedules dir (HA) | `/config/viessmann-planning/schedules/` |
 | Heating range | 5–25 °C |
-| DHW range | 55–75 °C |
+| DHW range | 10–60 °C (device VScotHO1_40 API max) |
 | Valid resolutions | 1, 5, 10, 20, 30, 60 minutes |
 
 ---
