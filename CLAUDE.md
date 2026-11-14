@@ -100,6 +100,8 @@ Same three-group precedence as tado-planning, but `select_config_for_level()` is
   `MQTT_NOT_CONFIGURED`, `MQTT_CONFIG_ERROR`, `MQTT_CLIENT_MISSING`, `MQTT_UNREACHABLE`, `MQTT_AUTH_ERROR`,
   `READER_OFFLINE` (`vito/LWT` not `online`).
 - `VIESSMANN_MQTT_PREFIX` (default `vito`) and `VIESSMANN_MQTT_FILE` override the topic prefix and the settings file.
+- Dry run: add-on option `dry_run`, `--dry-run` or `VIESSMANN_DRY_RUN=true` — the scheduler reads the boiler and logs
+  `[DRY-RUN] … would set N°C` instead of writing. The option is read when the add-on starts.
 - Known limit: values are republished on change only, so a stalled Optolink head is not detected while `vito/LWT`
   stays `online`.
 

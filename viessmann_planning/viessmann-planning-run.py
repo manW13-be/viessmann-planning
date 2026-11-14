@@ -88,6 +88,10 @@ DHW_TEMP_MAX     = 60
 
 VERBOSITY = 0
 
+# Dry run: read the boiler and log what would be written, without writing anything.
+# Set by --dry-run, VIESSMANN_DRY_RUN=true, or the add-on option "dry_run".
+DRY_RUN = os.environ.get("VIESSMANN_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
+
 
 def log(msg: str, level: int = 0):
     if VERBOSITY >= level:
@@ -740,6 +744,10 @@ def apply_l1_heating(device, cfg: dict, now: datetime.datetime, config_name: str
         log(f"[SKIP] Heating: already at {target}°C")
         return False
 
+    if DRY_RUN:
+        log(f"[DRY-RUN] Heating: would set {target}°C — nothing written")
+        return False
+
     log(f"[UPDATE] Heating: setting to {target}°C")
     set_heating_setpoint(device, target)
     log(f"[OK]   Heating: setpoint → {target}°C")
@@ -759,6 +767,10 @@ def apply_l2_dhw(device, cfg: dict, now: datetime.datetime, config_name: str) ->
 
     if current is not None and abs(float(current) - float(target)) <= 0.1:
         log(f"[SKIP] DHW: already at {target}°C")
+        return False
+
+    if DRY_RUN:
+        log(f"[DRY-RUN] DHW: would set {target}°C — nothing written")
         return False
 
     log(f"[UPDATE] DHW: setting to {target}°C")
@@ -986,7 +998,7 @@ def cmd_simulate(date_str: str | None = None):
 # ---------------------------------------------------------------------------
 
 def main():
-    global VERBOSITY
+    global VERBOSITY, DRY_RUN
 
     parser = argparse.ArgumentParser(
         description="Applies Viessmann heating/DHW setpoints from plannings.json + weekconfigs.json.",
@@ -998,6 +1010,8 @@ def main():
                         help="Read current setpoints from Viessmann and output as JSON")
     parser.add_argument("--simulate", action="store_true",
                         help="Compute expected setpoints without connecting to Viessmann")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Read the boiler and log what would be written, without writing")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                         help=("-v    : config details\n"
                               "-vv   : + cycle candidates\n"
@@ -1005,6 +1019,7 @@ def main():
                               "-vvvv : + full debug"))
     args = parser.parse_args()
     VERBOSITY = min(args.verbose, 4)
+    DRY_RUN = DRY_RUN or args.dry_run
 
     if args.viessmann_status:
         cmd_viessmann_status()
@@ -1095,7 +1110,10 @@ def main():
                            l2_cfg is not None and not l2_updated])
     log(f"[OK]   {updated_count} setpoint(s) updated, {unchanged_count} unchanged.")
 
-    verify(device, l1_cfg, l2_cfg, now)
+    if DRY_RUN:
+        log("[DRY-RUN] Nothing was written to the boiler.")
+    else:
+        verify(device, l1_cfg, l2_cfg, now)
 
     log_api_stats()
     save_api_stats()

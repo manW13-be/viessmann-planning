@@ -21,9 +21,11 @@
     }
   ],
   "options": {
-    "verbosity": 0
+    "verbosity": 0,
+    "dry_run": false
   },
   "schema": {
-    "verbosity": "int"
+    "verbosity": "int",
+    "dry_run": "bool"
   }
 }

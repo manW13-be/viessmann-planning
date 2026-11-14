@@ -142,6 +142,8 @@ case "$CONTEXT" in
         ;;
     ha-docker-prod|ha-docker-test)
         VERBOSITY=$(jq -r '.verbosity // 0' /data/options.json 2>/dev/null || echo "0")
+        # dry_run : le scheduler lit la chaudière et journalise ce qu'il écrirait, sans rien écrire
+        export VIESSMANN_DRY_RUN=$(jq -r '.dry_run // false' /data/options.json 2>/dev/null || echo "false")
         SCHEDULES_DIR="/config/viessmann-planning/schedules"
         PYTHON="python3"
         PLANNING_SCRIPT="/viessmann-planning-run.py"
@@ -219,7 +221,7 @@ set_loop_files() {
 }
 
 log_run_header() {
-    log "━━━ START mode=${1} | verbosity=${VERBOSITY} ━━━"
+    log "━━━ START mode=${1} | verbosity=${VERBOSITY} | dry_run=${VIESSMANN_DRY_RUN:-false} ━━━"
 }
 
 rotate_log() {
