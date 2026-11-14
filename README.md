@@ -7,7 +7,7 @@ Scheduler for a Viessmann boiler (two-week cycles, exception periods, independen
 | Branch | Boiler access | State |
 |---|---|---|
 | [`viessmann-cloud`](../../tree/viessmann-cloud) | Viessmann cloud API (PyViCare) through a Vitoconnect gateway | Working code, v1.1.5. Continues the former `main` (v1.1.4, tag `pre-split-v1.1.4`). |
-| [`local-mqtt`](../../tree/local-mqtt) | Direct MQTT: topics `vito/<name>`, `vito/LWT`, commands `vito/cmnd`, published by an Optolink reader | Cloud layer removed, backend to be written. |
+| [`local-mqtt`](../../tree/local-mqtt) | Direct MQTT: topics `vito/<name>`, `vito/LWT`, commands `vito/cmnd`, published by an Optolink reader | Working: reads and writes the setpoints by MQTT, optional dry-run. Installed on HA2 since 14 Nov 2026. |
 | [`home-assistant`](../../tree/home-assistant) | Home Assistant entities `vitocrossal_*` (MQTT discovery) through the Core API | Cloud layer removed, backend to be written. |
 
 ## Installing a variant in Home Assistant
@@ -15,7 +15,7 @@ Scheduler for a Viessmann boiler (two-week cycles, exception periods, independen
 Add the repository with the branch as suffix, for example:
 
 ```
-https://github.com/manW13-be/viessmann-planning#home-assistant
+https://github.com/manW13-be/viessmann-planning#local-mqtt
 ```
 
 The three variants share the add-on slug `viessmann_planning`: install only one at a time. Schedules stay in `/config/viessmann-planning/schedules/` whichever variant is installed.
