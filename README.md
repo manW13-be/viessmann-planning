@@ -30,6 +30,12 @@ Automated Viessmann heating schedule management — with two-week cycle support,
 
 ---
 
+## Files to fill in (never committed)
+
+None inside Home Assistant: the add-on uses the access Home Assistant gives it. Running this variant outside Home Assistant is not supported yet (it would need the Home Assistant URL and a long-lived token).
+
+---
+
 ## Why viessmann-planning
 
 Viessmann boilers have on-device schedules — but those schedules are limited to a seven-day week. There is no native way to express two-week custody cycles, multi-week exception periods, or independent control of heating setpoints vs. DHW (domestic hot water) setpoints.
