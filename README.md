@@ -28,3 +28,15 @@ The three variants share the add-on slug `viessmann_planning`: install only one 
 - In `local-mqtt` and `home-assistant`, the backend is isolated in the `BOILER BACKEND` section of `viessmann_planning/viessmann-planning-run.py` (`connect_backend`, `get_/set_heating_setpoint`, `get_/set_dhw_setpoint`, `BackendError`).
 - Each branch carries its own version in `viessmann_planning/config.json`; `scripts/git_push.sh --bump` bumps and pushes the current branch only.
 - `viessmann_credentials.json` and `viessmann_token.save` must stay in `gitignore` / `.gitignore` on every branch, including the ones that no longer use them: the files can still be present in a working copy.
+
+## Files to fill in, by variant
+
+Credentials are never committed. Each branch that needs a file ships a `.template` next to where the real file goes: copy it without the `.template` suffix and fill it in.
+
+| Variant | File to fill in | Template | Content |
+|---|---|---|---|
+| `viessmann-cloud` | `viessmann_credentials.json` | `viessmann_credentials.json.template` | Viessmann account email and password, developer client id |
+| `local-mqtt` | `mqtt_credentials.json` (only outside Home Assistant, or when the Supervisor does not provide the broker settings) | `mqtt_credentials.json.template` | broker host, port, username, password |
+| `home-assistant` | none | — | the add-on uses the access Home Assistant gives it |
+
+Location: project root on macOS, `/config/viessmann-planning/` on Home Assistant. `viessmann_token.save` is written by the cloud variant itself, never by hand.
