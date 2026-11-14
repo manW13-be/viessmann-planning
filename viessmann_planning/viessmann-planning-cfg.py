@@ -35,16 +35,10 @@ from flask import Flask, jsonify, request, render_template
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if platform.system() == "Darwin":
-    _DEFAULT_CREDS_FILE = os.path.join(_SCRIPT_DIR, "..", "viessmann_credentials.json")
-    _DEFAULT_TOKEN_FILE = os.path.join(_SCRIPT_DIR, "..", "viessmann_token.save")
     _DEFAULT_DATA_DIR   = os.path.join(_SCRIPT_DIR, "..", "schedules")
 else:
-    _DEFAULT_CREDS_FILE = "/config/viessmann-planning/viessmann_credentials.json"
-    _DEFAULT_TOKEN_FILE = "/config/viessmann-planning/viessmann_token.save"
     _DEFAULT_DATA_DIR   = "/config/viessmann-planning/schedules"
 
-CREDS_FILE        = os.environ.get("VIESSMANN_CREDS_FILE",    os.path.abspath(_DEFAULT_CREDS_FILE))
-TOKEN_FILE        = os.environ.get("VIESSMANN_TOKEN_FILE",    os.path.abspath(_DEFAULT_TOKEN_FILE))
 DATA_DIR          = os.environ.get("VIESSMANN_SCHEDULES_DIR", os.path.abspath(_DEFAULT_DATA_DIR))
 VIESSMANN_CONTEXT = os.environ.get("VIESSMANN_CONTEXT", "unknown")
 
@@ -923,42 +917,6 @@ def api_settings_save():
 
 
 # ---------------------------------------------------------------------------
-# API — CREDENTIALS
-# ---------------------------------------------------------------------------
-
-@app.route("/api/credentials", methods=["GET"])
-def api_credentials_get():
-    if not os.path.exists(CREDS_FILE):
-        return jsonify({"exists": False, "username": "", "password": "", "client_id": ""})
-    try:
-        with open(CREDS_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        return jsonify({"exists": True, "username": data.get("username", ""),
-                        "password": data.get("password", ""), "client_id": data.get("client_id", "")})
-    except Exception as e:
-        return jsonify({"exists": False, "error": str(e), "username": "", "password": "", "client_id": ""})
-
-
-@app.route("/api/credentials", methods=["POST"])
-def api_credentials_save():
-    data = request.get_json()
-    if not isinstance(data, dict):
-        return jsonify({"error": "Invalid data"}), 400
-    username  = str(data.get("username",  "")).strip()
-    password  = str(data.get("password",  "")).strip()
-    client_id = str(data.get("client_id", "")).strip()
-    if not username or not password or not client_id:
-        return jsonify({"error": "All fields are required"}), 422
-    try:
-        with open(CREDS_FILE, "w", encoding="utf-8") as f:
-            json.dump({"username": username, "password": password, "client_id": client_id},
-                      f, indent=2, ensure_ascii=False)
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ---------------------------------------------------------------------------
 # API — LOGS
 # ---------------------------------------------------------------------------
 
@@ -1036,8 +994,6 @@ def _loop_is_alive() -> bool:
 def _run_scheduler_subprocess():
     env = os.environ.copy()
     env["VIESSMANN_SCHEDULES_DIR"] = DATA_DIR
-    env["VIESSMANN_CREDS_FILE"]    = CREDS_FILE
-    env["VIESSMANN_TOKEN_FILE"]    = TOKEN_FILE
     try:
         _rotate_log()
         proc = subprocess.Popen(
@@ -1337,7 +1293,6 @@ def main():
     print(f"  ──────────────────────────────────────")
     print(f"  URL      : {url}")
     print(f"  Data dir : {DATA_DIR}")
-    print(f"  Creds    : {CREDS_FILE}")
     print(f"\n  Press Ctrl+C to stop.\n")
 
     threading.Thread(target=_ha_monitor, daemon=True).start()

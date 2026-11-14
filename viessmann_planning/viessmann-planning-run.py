@@ -16,11 +16,11 @@ A planning can define Heating events, DHW events, or both.
 At each run:
   1. Resolve active weekconfig for Heating and DHW (via planning precedence)
   2. Find current time slot → target temperature
-  3. Read current setpoint from Viessmann API
+  3. Read current setpoint from the boiler backend
   4. Update only if different
 
 Requirements:
-    pip install PyViCare flask requests
+    pip install flask requests
 """
 
 import sys
@@ -38,16 +38,10 @@ import time
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if platform.system() == "Darwin":
-    _DEFAULT_CREDS_FILE = os.path.join(_SCRIPT_DIR, "..", "viessmann_credentials.json")
-    _DEFAULT_TOKEN_FILE = os.path.join(_SCRIPT_DIR, "..", "viessmann_token.save")
     _DEFAULT_DATA_DIR   = os.path.join(_SCRIPT_DIR, "..", "schedules")
 else:
-    _DEFAULT_CREDS_FILE = "/config/viessmann-planning/viessmann_credentials.json"
-    _DEFAULT_TOKEN_FILE = "/config/viessmann-planning/viessmann_token.save"
     _DEFAULT_DATA_DIR   = "/config/viessmann-planning/schedules"
 
-CREDS_FILE = os.environ.get("VIESSMANN_CREDS_FILE",    os.path.abspath(_DEFAULT_CREDS_FILE))
-TOKEN_FILE = os.environ.get("VIESSMANN_TOKEN_FILE",    os.path.abspath(_DEFAULT_TOKEN_FILE))
 DATA_DIR   = os.environ.get("VIESSMANN_SCHEDULES_DIR", os.path.abspath(_DEFAULT_DATA_DIR))
 
 PLANNINGS_FILE   = os.path.join(DATA_DIR, "plannings.json")
@@ -513,96 +507,47 @@ def save_api_stats():
 
 
 # ---------------------------------------------------------------------------
-# VIESSMANN API
+# BOILER BACKEND  — to be written for this branch (local-mqtt)
 # ---------------------------------------------------------------------------
+# The Viessmann cloud layer was removed from this branch.
+# The rest of this script (planning resolution above, apply / verify / HA push
+# below) only depends on the five functions of this section.
 
-def load_credentials() -> dict:
-    if not os.path.exists(CREDS_FILE):
-        log(f"[AUTH] Credentials file not found: {CREDS_FILE}")
-        log(f"[AUTH] Create it with: {{\"username\": \"your@email.com\", "
-            f"\"password\": \"your_pass\", \"client_id\": \"your_id\"}}")
-        sys.exit(1)
-    with open(CREDS_FILE, encoding="utf-8") as f:
-        return json.load(f)
+BACKEND_NAME = "local-mqtt"
 
 
-def get_vicare_client():
-    """Return (PyViCare instance, auto-detected device)."""
-    try:
-        from PyViCare.PyViCare import PyViCare
-    except ImportError:
-        log("[AUTH] PyViCare not installed. Run: pip install PyViCare")
-        sys.exit(1)
+class BackendError(Exception):
+    """Boiler unreachable, or backend not ready. `reason` is published to HA."""
 
-    creds  = load_credentials()
-    vicare = PyViCare()
-    try:
-        vicare.initWithCredentials(
-            username=creds["username"],
-            password=creds["password"],
-            client_id=creds["client_id"],
-            token_file=TOKEN_FILE,
-        )
-    except Exception as e:
-        log(f"[AUTH] Failed to connect to Viessmann: {e}")
-        sys.exit(1)
+    def __init__(self, reason: str, detail: str = ""):
+        super().__init__(detail or reason)
+        self.reason = reason
 
-    if not vicare.devices:
-        log("[AUTH] No Viessmann devices found in account")
-        sys.exit(1)
 
-    device = vicare.devices[0].asAutoDetectDevice()
-    log("[AUTH] Connected to Viessmann.", 1)
-    return vicare, device
+def connect_backend():
+    """Return an opaque handle, passed as `device` to the get_/set_ functions."""
+    raise BackendError("BACKEND_NOT_IMPLEMENTED",
+                       f"backend '{BACKEND_NAME}' is not written yet")
 
 
 def get_heating_setpoint(device) -> float | None:
-    """Read current heating comfort/normal temperature setpoint."""
-    _api_stats["GET"] += 1
-    for program in ("comfort", "normal"):
-        try:
-            val = device.circuits[0].getProgramTemperature(program)
-            log(f"[API]  GET heating setpoint ({program}): {val}°C", 3)
-            return float(val)
-        except Exception:
-            continue
-    log("[WARN] Could not read heating setpoint", 1)
-    return None
+    """Read current heating comfort temperature setpoint (count it in _api_stats["GET"])."""
+    raise BackendError("BACKEND_NOT_IMPLEMENTED")
 
 
 def set_heating_setpoint(device, temp: int):
-    """Set heating comfort/normal temperature setpoint."""
-    _api_stats["SET"] += 1
-    for program in ("comfort", "normal"):
-        try:
-            device.circuits[0].setProgramTemperature(program, temp)
-            log(f"[API]  SET heating setpoint ({program}): {temp}°C", 3)
-            return
-        except Exception:
-            continue
-    raise RuntimeError(f"Failed to set heating setpoint to {temp}°C")
+    """Set heating comfort temperature setpoint (count it in _api_stats["SET"])."""
+    raise BackendError("BACKEND_NOT_IMPLEMENTED")
 
 
 def get_dhw_setpoint(device) -> float | None:
-    """Read current DHW/ECS temperature setpoint."""
-    _api_stats["GET"] += 1
-    try:
-        val = device.getDomesticHotWaterConfiguredTemperature()
-        log(f"[API]  GET DHW setpoint: {val}°C", 3)
-        return float(val)
-    except Exception as e:
-        log(f"[WARN] Could not read DHW setpoint: {e}", 1)
-        return None
+    """Read current DHW/ECS temperature setpoint (count it in _api_stats["GET"])."""
+    raise BackendError("BACKEND_NOT_IMPLEMENTED")
 
 
 def set_dhw_setpoint(device, temp: int):
-    """Set DHW/ECS temperature setpoint."""
-    _api_stats["SET"] += 1
-    try:
-        device.setDomesticHotWaterTemperature(temp)
-        log(f"[API]  SET DHW setpoint: {temp}°C", 3)
-    except Exception as e:
-        raise RuntimeError(f"Failed to set DHW setpoint to {temp}°C: {e}")
+    """Set DHW/ECS temperature setpoint (count it in _api_stats["SET"])."""
+    raise BackendError("BACKEND_NOT_IMPLEMENTED")
 
 
 # ---------------------------------------------------------------------------
@@ -687,8 +632,8 @@ def verify(device, l1_cfg: dict | None, l2_cfg: dict | None, now: datetime.datet
 # ---------------------------------------------------------------------------
 
 def push_gateway_status(online: bool, reason: str) -> None:
-    """Publie dans HA l'accessibilité de la passerelle (Vitoconnect) vue par l'add-on, à chaque run,
-    y compris quand la connexion échoue (GATEWAY_OFFLINE…) — l'onglet « Vitoconnect » de HA2 s'en sert.
+    """Publie dans HA l'accessibilité de la chaudière vue par l'add-on, à chaque run,
+    y compris quand la connexion échoue (BackendError.reason) — l'onglet « Vitoconnect » de HA2 s'en sert.
     Les états POSTés ne survivent pas à un redémarrage de HA : ils sont republiés toutes les 10 min."""
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
@@ -718,13 +663,6 @@ def push_gateway_status(online: bool, reason: str) -> None:
             log(f"[HA] {entity_id} → HTTP {r.status_code}", 1)
         except Exception as e:
             log(f"[HA] {entity_id} push failed: {e}", 1)
-
-
-def _comm_reason(exc: Exception) -> str:
-    """'GATEWAY_OFFLINE', 'DEVICE_COMMUNICATION_ERROR'… extrait du message PyViCare, sinon le type de l'exception."""
-    import re
-    m = re.search(r"Reason:\s*([A-Z_]+)", str(exc))
-    return m.group(1) if m else type(exc).__name__
 
 
 def push_ha_sensors(l1_cfg_name: str | None, l2_cfg_name: str | None,
@@ -807,30 +745,21 @@ def push_ha_sensors(l1_cfg_name: str | None, l2_cfg_name: str | None,
 # ---------------------------------------------------------------------------
 
 def cmd_viessmann_status():
-    """Read current setpoints from Viessmann and print as JSON on stdout."""
+    """Read current setpoints from the boiler backend and print as JSON on stdout."""
     import sys as _sys
     _stdout, _sys.stdout = _sys.stdout, _sys.stderr
 
-    _, device = get_vicare_client()
-    result = {}
-
-    for prog in ("comfort", "normal"):
-        try:
-            result["heating_temp"] = float(device.circuits[0].getProgramTemperature(prog))
-            result["heating_program"] = prog
-            break
-        except Exception:
-            continue
-
+    result = {"backend": BACKEND_NAME}
     try:
-        result["dhw_temp"] = float(device.getDomesticHotWaterConfiguredTemperature())
-    except Exception as e:
-        result["dhw_error"] = str(e)
-
-    try:
-        result["device_type"] = type(device).__name__
-    except Exception:
-        pass
+        device = connect_backend()
+        heating = get_heating_setpoint(device)
+        if heating is not None:
+            result["heating_temp"] = heating
+        dhw = get_dhw_setpoint(device)
+        if dhw is not None:
+            result["dhw_temp"] = dhw
+    except BackendError as e:
+        result["error"] = e.reason
 
     log_api_stats()
     _sys.stdout = _stdout
@@ -964,16 +893,12 @@ def main():
         log_api_stats()
         return
 
-    log("[VIESSMANN] Connecting...")
+    log(f"[BOILER] Connecting ({BACKEND_NAME})...")
     try:
-        _, device = get_vicare_client()
-    except SystemExit:
-        push_gateway_status(False, "AUTH_ERROR")
-        raise
-    except Exception as e:
-        reason = _comm_reason(e)
-        log(f"[VIESSMANN] Device unreachable: {reason} ({e})")
-        push_gateway_status(False, reason)
+        device = connect_backend()
+    except BackendError as e:
+        log(f"[BOILER] Unreachable: {e.reason} ({e})")
+        push_gateway_status(False, e.reason)
         log_api_stats()
         save_api_stats()
         return

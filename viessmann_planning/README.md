@@ -1,5 +1,9 @@
 # Viessmann Planning
 
+> **Branch `local-mqtt`** — this variant talks **directly to the MQTT broker** (state topics `vito/<name>`, availability `vito/LWT`, commands `vito/cmnd`) published by the Optolink reader. No Viessmann cloud, no dependency on Home Assistant entities, so it also runs outside Home Assistant (macOS).
+> The boiler backend is **not written yet**: see the `BOILER BACKEND` section of `viessmann_planning/viessmann-planning-run.py`.
+> Other variants live on the branches `viessmann-cloud`, `local-mqtt` and `home-assistant`; `main` only holds the branch map.
+
 Home Assistant add-on that manages Viessmann boiler setpoints from two-week cycle schedules.
 
 ## Features
@@ -12,19 +16,7 @@ Home Assistant add-on that manages Viessmann boiler setpoints from two-week cycl
 
 ## Requirements
 
-- A Viessmann boiler accessible via the Viessmann API
-- A Viessmann developer account with a registered `client_id`  
-  → Register at [app.developer.viessmann.com](https://app.developer.viessmann.com) (redirect URI: `vicare://oauth-callback/everest`)
-
-## Configuration
-
-After installing the add-on, open the web UI (via the sidebar panel **Viessmann Planning**) and enter your credentials:
-
-| Field | Description |
-|-------|-------------|
-| Username | Your Viessmann account email |
-| Password | Your Viessmann account password |
-| Client ID | Your registered API client ID |
+- The boiler readable and writable locally (Optolink reader publishing to MQTT).
 
 ## Data
 

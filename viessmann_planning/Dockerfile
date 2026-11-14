@@ -4,7 +4,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends jq curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir flask requests PyViCare
+RUN pip install --no-cache-dir flask requests
 
 COPY viessmann-planning-run.py /viessmann-planning-run.py
 COPY viessmann-planning-cfg.py /viessmann-planning-cfg.py
