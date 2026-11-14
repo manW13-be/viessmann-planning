@@ -1,7 +1,7 @@
 # Viessmann Planning
 
 > **Branch `local-mqtt`** — this variant talks **directly to the MQTT broker** (state topics `vito/<name>`, availability `vito/LWT`, commands `vito/cmnd`) published by the Optolink reader. No Viessmann cloud, no dependency on Home Assistant entities, so it also runs outside Home Assistant (macOS).
-> The boiler backend is **not written yet**: see the `BOILER BACKEND` section of `viessmann_planning/viessmann-planning-run.py`.
+> The backend is in the `BOILER BACKEND` section of `viessmann_planning/viessmann-planning-run.py`; it follows the reader's MQTT contract (`CONTRAT_MQTT.md` in the `vitoconnect-rpi` project).
 > Other variants live on the branches `viessmann-cloud`, `local-mqtt` and `home-assistant`; `main` only holds the branch map.
 
 Home Assistant add-on that manages Viessmann boiler setpoints from two-week cycle schedules.

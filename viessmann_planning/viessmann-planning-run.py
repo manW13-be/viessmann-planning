@@ -20,7 +20,7 @@ At each run:
   4. Update only if different
 
 Requirements:
-    pip install flask requests
+    pip install flask requests paho-mqtt
 """
 
 import sys
@@ -39,10 +39,13 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if platform.system() == "Darwin":
     _DEFAULT_DATA_DIR   = os.path.join(_SCRIPT_DIR, "..", "schedules")
+    _DEFAULT_MQTT_FILE  = os.path.join(_SCRIPT_DIR, "..", "mqtt_credentials.json")
 else:
     _DEFAULT_DATA_DIR   = "/config/viessmann-planning/schedules"
+    _DEFAULT_MQTT_FILE  = "/config/viessmann-planning/mqtt_credentials.json"
 
 DATA_DIR   = os.environ.get("VIESSMANN_SCHEDULES_DIR", os.path.abspath(_DEFAULT_DATA_DIR))
+MQTT_FILE  = os.environ.get("VIESSMANN_MQTT_FILE",     os.path.abspath(_DEFAULT_MQTT_FILE))
 
 PLANNINGS_FILE   = os.path.join(DATA_DIR, "plannings.json")
 WEEKCONFIGS_FILE = os.path.join(DATA_DIR, "weekconfigs.json")
@@ -507,13 +510,25 @@ def save_api_stats():
 
 
 # ---------------------------------------------------------------------------
-# BOILER BACKEND  — to be written for this branch (local-mqtt)
+# BOILER BACKEND  — local MQTT
 # ---------------------------------------------------------------------------
-# The Viessmann cloud layer was removed from this branch.
+# Talks to the Optolink reader through the MQTT broker. The only reference is
+# the contract kept with the reader (CONTRAT_MQTT.md, version 1):
+#   <prefix>/LWT          "online" / "offline"   (retained)
+#   <prefix>/<name>       current value          (retained, republished on change only)
+#   <prefix>/<name>/set   write a value by name  (same unit as the value read)
+#   <prefix>/resp         "<code>;<address>;<value>" after each write, code 1 = accepted
 # The rest of this script (planning resolution above, apply / verify / HA push
 # below) only depends on the five functions of this section.
 
 BACKEND_NAME = "local-mqtt"
+
+MQTT_PREFIX       = os.environ.get("VIESSMANN_MQTT_PREFIX", "vito").strip("/")
+DP_HEATING        = "consigne_confort_circuit_1"   # heating circuit 1, comfort room setpoint (°C, integer)
+DP_DHW            = "consigne_ecs"                 # DHW setpoint (°C, integer)
+MQTT_CONNECT_WAIT = 10    # seconds to get a broker answer
+MQTT_DATA_WAIT    = 5     # seconds to receive the retained values after subscribing
+MQTT_WRITE_WAIT   = 20    # seconds for the reader to publish the value just written
 
 
 class BackendError(Exception):
@@ -524,30 +539,186 @@ class BackendError(Exception):
         self.reason = reason
 
 
+def load_mqtt_config() -> dict:
+    """Broker settings: MQTT_FILE if present, else the Home Assistant MQTT service (add-on)."""
+    if os.path.exists(MQTT_FILE):
+        try:
+            with open(MQTT_FILE, encoding="utf-8") as f:
+                cfg = json.load(f)
+            if not isinstance(cfg, dict) or not cfg.get("host"):
+                raise ValueError('"host" is missing')
+        except Exception as e:
+            raise BackendError("MQTT_CONFIG_ERROR", f"{MQTT_FILE}: {e}")
+        log(f"[MQTT] Settings from {MQTT_FILE}", 1)
+        return cfg
+
+    token = os.environ.get("SUPERVISOR_TOKEN")
+    if token:
+        try:
+            import requests as _req
+            r = _req.get("http://supervisor/services/mqtt",
+                         headers={"Authorization": f"Bearer {token}"}, timeout=5)
+            data = r.json().get("data") or {}
+        except Exception as e:
+            raise BackendError("MQTT_CONFIG_ERROR", f"Supervisor MQTT service: {e}")
+        if not r.ok or not data.get("host"):
+            raise BackendError("MQTT_NOT_CONFIGURED",
+                               f"Supervisor MQTT service unavailable (HTTP {r.status_code})")
+        log("[MQTT] Settings from the Home Assistant MQTT service", 1)
+        return data
+
+    raise BackendError("MQTT_NOT_CONFIGURED",
+                       f"create {MQTT_FILE} with "
+                       '{"host": "...", "port": 1883, "username": "...", "password": "..."}')
+
+
+class MqttBoiler:
+    """Connection to the broker, with the last value seen on each watched topic."""
+
+    def __init__(self, cfg: dict):
+        try:
+            import paho.mqtt.client as paho
+        except ImportError:
+            raise BackendError("MQTT_CLIENT_MISSING", "paho-mqtt not installed. Run: pip install paho-mqtt")
+        import threading
+
+        self._values: dict[str, str] = {}
+        self._last_resp: str | None = None
+        self._changed = threading.Condition()
+        self._rc = None
+        self._watched = [f"{MQTT_PREFIX}/{n}" for n in ("LWT", DP_HEATING, DP_DHW, "resp")]
+
+        client = paho.Client(paho.CallbackAPIVersion.VERSION2,
+                             client_id=f"viessmann-planning-{os.getpid()}")
+        if cfg.get("username"):
+            client.username_pw_set(cfg["username"], cfg.get("password") or None)
+        if cfg.get("ssl"):
+            client.tls_set()
+        client.on_connect = self._on_connect
+        client.on_message = self._on_message
+        self._client = client
+
+        host, port = cfg["host"], int(cfg.get("port") or 1883)
+        log(f"[MQTT] Connecting to {host}:{port}", 1)
+        try:
+            client.connect(host, port, keepalive=30)
+        except Exception as e:
+            raise BackendError("MQTT_UNREACHABLE", f"{host}:{port}: {e}")
+        client.loop_start()
+
+        with self._changed:
+            self._changed.wait_for(lambda: self._rc is not None, timeout=MQTT_CONNECT_WAIT)
+        if self._rc is None:
+            self.close()
+            raise BackendError("MQTT_UNREACHABLE", f"{host}:{port}: no answer in {MQTT_CONNECT_WAIT}s")
+        if self._rc.is_failure:
+            self.close()
+            raise BackendError("MQTT_AUTH_ERROR", f"{host}:{port}: {self._rc}")
+
+        # the retained values arrive right after the subscription
+        with self._changed:
+            self._changed.wait_for(
+                lambda: all(f"{MQTT_PREFIX}/{n}" in self._values for n in ("LWT", DP_HEATING, DP_DHW)),
+                timeout=MQTT_DATA_WAIT)
+        lwt = self._values.get(f"{MQTT_PREFIX}/LWT")
+        if lwt != "online":
+            self.close()
+            raise BackendError("READER_OFFLINE", f"{MQTT_PREFIX}/LWT = {lwt!r}")
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+        if not reason_code.is_failure:
+            client.subscribe([(t, 1) for t in self._watched])
+        with self._changed:
+            self._rc = reason_code
+            self._changed.notify_all()
+
+    def _on_message(self, client, userdata, msg):
+        payload = msg.payload.decode("utf-8", "replace").strip()
+        with self._changed:
+            if msg.topic == f"{MQTT_PREFIX}/resp":
+                self._last_resp = payload
+            else:
+                self._values[msg.topic] = payload
+            self._changed.notify_all()
+
+    def read(self, name: str) -> float | None:
+        raw = self._values.get(f"{MQTT_PREFIX}/{name}")
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def write(self, name: str, value: int):
+        """Write by name, then wait until the reader publishes the new value."""
+        with self._changed:
+            self._last_resp = None
+        info = self._client.publish(f"{MQTT_PREFIX}/{name}/set", str(int(value)), qos=1)
+        info.wait_for_publish(timeout=MQTT_CONNECT_WAIT)
+        with self._changed:
+            done = self._changed.wait_for(
+                lambda: (r := self.read(name)) is not None and abs(r - value) <= 0.1,
+                timeout=MQTT_WRITE_WAIT)
+        if not done:
+            raise RuntimeError(f"{name}: no confirmation in {MQTT_WRITE_WAIT}s "
+                               f"(value read: {self.read(name)}, last response: {self._last_resp})")
+
+    def close(self):
+        try:
+            self._client.loop_stop()
+            self._client.disconnect()
+        except Exception:
+            pass
+
+
 def connect_backend():
     """Return an opaque handle, passed as `device` to the get_/set_ functions."""
-    raise BackendError("BACKEND_NOT_IMPLEMENTED",
-                       f"backend '{BACKEND_NAME}' is not written yet")
+    import atexit
+    device = MqttBoiler(load_mqtt_config())
+    atexit.register(device.close)
+    log("[MQTT] Connected, reader online.", 1)
+    return device
 
 
 def get_heating_setpoint(device) -> float | None:
-    """Read current heating comfort temperature setpoint (count it in _api_stats["GET"])."""
-    raise BackendError("BACKEND_NOT_IMPLEMENTED")
+    """Read current heating comfort temperature setpoint."""
+    _api_stats["GET"] += 1
+    val = device.read(DP_HEATING)
+    if val is None:
+        log("[WARN] Could not read heating setpoint", 1)
+    else:
+        log(f"[MQTT] GET {DP_HEATING}: {val}°C", 3)
+    return val
 
 
 def set_heating_setpoint(device, temp: int):
-    """Set heating comfort temperature setpoint (count it in _api_stats["SET"])."""
-    raise BackendError("BACKEND_NOT_IMPLEMENTED")
+    """Set heating comfort temperature setpoint."""
+    _api_stats["SET"] += 1
+    try:
+        device.write(DP_HEATING, temp)
+        log(f"[MQTT] SET {DP_HEATING}: {temp}°C", 3)
+    except Exception as e:
+        raise RuntimeError(f"Failed to set heating setpoint to {temp}°C: {e}")
 
 
 def get_dhw_setpoint(device) -> float | None:
-    """Read current DHW/ECS temperature setpoint (count it in _api_stats["GET"])."""
-    raise BackendError("BACKEND_NOT_IMPLEMENTED")
+    """Read current DHW/ECS temperature setpoint."""
+    _api_stats["GET"] += 1
+    val = device.read(DP_DHW)
+    if val is None:
+        log("[WARN] Could not read DHW setpoint", 1)
+    else:
+        log(f"[MQTT] GET {DP_DHW}: {val}°C", 3)
+    return val
 
 
 def set_dhw_setpoint(device, temp: int):
-    """Set DHW/ECS temperature setpoint (count it in _api_stats["SET"])."""
-    raise BackendError("BACKEND_NOT_IMPLEMENTED")
+    """Set DHW/ECS temperature setpoint."""
+    _api_stats["SET"] += 1
+    try:
+        device.write(DP_DHW, temp)
+        log(f"[MQTT] SET {DP_DHW}: {temp}°C", 3)
+    except Exception as e:
+        raise RuntimeError(f"Failed to set DHW setpoint to {temp}°C: {e}")
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 viessmann_credentials.json
 viessmann_token.save
+mqtt_credentials.json
 .DS_Store
 __pycache__/
 *.pyc

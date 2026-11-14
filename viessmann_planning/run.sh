@@ -134,6 +134,7 @@ case "$CONTEXT" in
         MISSING=()
         "$PYTHON" -c "import flask"    2>/dev/null || MISSING+=("flask")
         "$PYTHON" -c "import requests" 2>/dev/null || MISSING+=("requests")
+        "$PYTHON" -c "import paho.mqtt.client" 2>/dev/null || MISSING+=("paho-mqtt>=2.0,<3")
         if [ ${#MISSING[@]} -gt 0 ]; then
             log "Installing: ${MISSING[*]}"
             "$VENV_DIR/bin/pip" install --quiet "${MISSING[@]}"
