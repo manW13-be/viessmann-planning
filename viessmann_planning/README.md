@@ -1,5 +1,9 @@
 # Viessmann Planning
 
+> **Branch `home-assistant`** — this variant drives the boiler through the **Home Assistant entities** `vitocrossal_*` (created by MQTT discovery), using the Core API with the Supervisor token. No Viessmann cloud, no MQTT credentials in the add-on.
+> The boiler backend is **not written yet**: see the `BOILER BACKEND` section of `viessmann_planning/viessmann-planning-run.py`.
+> Other variants live on the branches `viessmann-cloud`, `local-mqtt` and `home-assistant`; `main` only holds the branch map.
+
 Home Assistant add-on that manages Viessmann boiler setpoints from two-week cycle schedules.
 
 ## Features
@@ -12,19 +16,7 @@ Home Assistant add-on that manages Viessmann boiler setpoints from two-week cycl
 
 ## Requirements
 
-- A Viessmann boiler accessible via the Viessmann API
-- A Viessmann developer account with a registered `client_id`  
-  → Register at [app.developer.viessmann.com](https://app.developer.viessmann.com) (redirect URI: `vicare://oauth-callback/everest`)
-
-## Configuration
-
-After installing the add-on, open the web UI (via the sidebar panel **Viessmann Planning**) and enter your credentials:
-
-| Field | Description |
-|-------|-------------|
-| Username | Your Viessmann account email |
-| Password | Your Viessmann account password |
-| Client ID | Your registered API client ID |
+- The boiler readable and writable locally (Optolink reader publishing to MQTT).
 
 ## Data
 

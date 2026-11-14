@@ -1,5 +1,9 @@
 # viessmann-planning
 
+> **Branch `home-assistant`** — this variant drives the boiler through the **Home Assistant entities** `vitocrossal_*` (created by MQTT discovery), using the Core API with the Supervisor token. No Viessmann cloud, no MQTT credentials in the add-on.
+> The boiler backend is **not written yet**: see the `BOILER BACKEND` section of `viessmann_planning/viessmann-planning-run.py`.
+> Other variants live on the branches `viessmann-cloud`, `local-mqtt` and `home-assistant`; `main` only holds the branch map.
+
 > **Version 1.0.0**
 
 Automated Viessmann heating schedule management — with two-week cycle support, exception periods, and independent heating/DHW control.
@@ -13,7 +17,6 @@ Automated Viessmann heating schedule management — with two-week cycle support,
 - [Key concepts](#key-concepts)
 - [Repository structure](#repository-structure)
 - [Prerequisites](#prerequisites)
-- [Viessmann API credentials](#viessmann-api-credentials)
 - [Setup — Home Assistant](#setup--home-assistant)
 - [Setup — macOS](#setup--macos)
 - [Web configurator](#web-configurator)
@@ -139,12 +142,10 @@ viessmann-planning/
 │   ├── docker_test_remove.sh       # HA: remove image + container
 │   ├── git_push.sh                 # Commit + push to GitHub
 │   ├── git_fetch.sh                # Pull from GitHub
-│   └── list_features.sh            # List Viessmann device features
 ├── schedules/                      # Runtime data (gitignored)
 │   ├── settings.json
 │   ├── *.json                      # Plannings and weekconfigs
 │   └── viessmann-planning.log
-├── viessmann_credentials.json      # API credentials (gitignored)
 ├── viessmann_token.save            # OAuth2 token cache (gitignored)
 ├── repository.json                 # HA repository metadata
 └── README.md
@@ -157,7 +158,6 @@ viessmann-planning/
 ### All platforms
 
 - Python 3.10+
-- `PyViCare` (`pip install PyViCare`)
 - `Flask` (`pip install flask`)
 - `requests` (`pip install requests`)
 - `jq` (for shell scripts)
@@ -170,31 +170,6 @@ viessmann-planning/
 
 - HA OS or Supervised installation with add-on support
 - SSH access to the HA host (for Docker test scripts)
-
----
-
-## Viessmann API credentials
-
-viessmann-planning uses the **Viessmann Developer API** (cloud, OAuth2). You need to register a client application:
-
-1. Go to [https://app.developer.viessmann.com](https://app.developer.viessmann.com)
-2. Create a new "Client" under your account
-3. Set the redirect URI to `vicare://oauth-callback/everest`
-4. Note the **Client ID**
-
-Then create `viessmann_credentials.json` at the project root:
-
-```json
-{
-  "username": "your-viessmann-account@example.com",
-  "password": "your-password",
-  "client_id": "your-client-id"
-}
-```
-
-This file is gitignored and never committed.
-
-**API call budget**: The free tier allows ~1,450 API calls per day. With resolution=10min the scheduler runs ~144 times/day. Each run makes at most 2 GET + 2 SET calls, well within budget.
 
 ---
 
@@ -346,8 +321,6 @@ Two-week variant — add `"cycle_type": "two-weeks-iso"` (or `"two-weeks-seq"`) 
 # Start only the web configurator
 ./viessmann_planning/run.sh --cfg
 
-# List Viessmann device features / available setpoints
-./scripts/list_features.sh
 
 # Docker test (HA SSH)
 ./scripts/docker_test_build.sh
@@ -412,7 +385,6 @@ Check `schedules/viessmann-planning-err.log`. Verify Python 3.11 is installed: `
 | `scripts/docker_test_remove.sh` | HA SSH | Remove image + container |
 | `scripts/git_push.sh` | All | Commit + push; `--bump` increments patch version |
 | `scripts/git_fetch.sh` | All | Pull from GitHub |
-| `scripts/list_features.sh` | All | Inspect Viessmann device capabilities |
 
 ### Architecture
 

@@ -104,8 +104,6 @@ case "$CONTEXT" in
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
         PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
         SCHEDULES_DIR="$PROJECT_DIR/schedules"
-        CREDS_FILE="$PROJECT_DIR/viessmann_credentials.json"
-        TOKEN_FILE="$PROJECT_DIR/viessmann_token.save"
         PYTHON=$(which python3.11 2>/dev/null || which python3)
         PLANNING_SCRIPT="$SCRIPT_DIR/viessmann-planning-run.py"
         CFG_SCRIPT="$SCRIPT_DIR/viessmann-planning-cfg.py"
@@ -118,8 +116,6 @@ case "$CONTEXT" in
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
         PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
         SCHEDULES_DIR="/config/viessmann-planning/schedules"
-        CREDS_FILE="/config/viessmann-planning/viessmann_credentials.json"
-        TOKEN_FILE="/config/viessmann-planning/viessmann_token.save"
         CFG_PORT="${CFG_PORT:-8098}"
         CFG_HOST="0.0.0.0"
         VERBOSITY=0
@@ -136,7 +132,6 @@ case "$CONTEXT" in
         PYTHON="$VENV_DIR/bin/python3"
 
         MISSING=()
-        "$PYTHON" -c "import PyViCare" 2>/dev/null || MISSING+=("PyViCare")
         "$PYTHON" -c "import flask"    2>/dev/null || MISSING+=("flask")
         "$PYTHON" -c "import requests" 2>/dev/null || MISSING+=("requests")
         if [ ${#MISSING[@]} -gt 0 ]; then
@@ -147,8 +142,6 @@ case "$CONTEXT" in
     ha-docker-prod|ha-docker-test)
         VERBOSITY=$(jq -r '.verbosity // 0' /data/options.json 2>/dev/null || echo "0")
         SCHEDULES_DIR="/config/viessmann-planning/schedules"
-        CREDS_FILE="/config/viessmann-planning/viessmann_credentials.json"
-        TOKEN_FILE="/config/viessmann-planning/viessmann_token.save"
         PYTHON="python3"
         PLANNING_SCRIPT="/viessmann-planning-run.py"
         CFG_SCRIPT="/viessmann-planning-cfg.py"
@@ -213,7 +206,6 @@ get_cfg_url() {
 
 log "Context : $CONTEXT | v${VERSION}"
 log "Schedules: $SCHEDULES_DIR"
-log "Creds    : $CREDS_FILE"
 
 LOOP_STATUS_FILE=""
 LOOP_TRIGGER_FILE=""
@@ -277,8 +269,6 @@ if [ "$LOOP" = true ]; then
     log "Starting configurator on ${CFG_HOST}:${CFG_PORT} — $CFG_URL"
     VIESSMANN_CONTEXT="$CONTEXT" \
     VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
-    VIESSMANN_CREDS_FILE="$CREDS_FILE" \
-    VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
     $PYTHON "$CFG_SCRIPT" --host "$CFG_HOST" --port "$CFG_PORT" --no-browser &
     CFG_PID=$!
 
@@ -290,8 +280,6 @@ if [ "$LOOP" = true ]; then
         LOOP_INTERVAL_MIN=$(( LOOP_INTERVAL_SEC / 60 ))
         log_run_header "loop (resolution=${LOOP_INTERVAL_MIN}min)"
         VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
-        VIESSMANN_CREDS_FILE="$CREDS_FILE" \
-        VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
         $PYTHON "$PLANNING_SCRIPT" ${PYTHON_ARGS[@]+"${PYTHON_ARGS[@]}"} 2>&1 \
             | tee_log || true
         LOOP_INTERVAL_SEC=$(read_resolution_sec)
@@ -325,8 +313,6 @@ elif [ "$RUN_CFG" = true ]; then
     log "Configurator on ${CFG_HOST}:${CFG_PORT} — $CFG_URL"
     VIESSMANN_CONTEXT="$CONTEXT" \
     VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
-    VIESSMANN_CREDS_FILE="$CREDS_FILE" \
-    VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
     $PYTHON "$CFG_SCRIPT" --host "$CFG_HOST" --port "$CFG_PORT" \
         $( [ "$CONTEXT" != "mac-shell" ] && echo "--no-browser" )
 
@@ -336,8 +322,6 @@ else
     rotate_log
     log_run_header "run"
     VIESSMANN_SCHEDULES_DIR="$SCHEDULES_DIR" \
-    VIESSMANN_CREDS_FILE="$CREDS_FILE" \
-    VIESSMANN_TOKEN_FILE="$TOKEN_FILE" \
     $PYTHON "$PLANNING_SCRIPT" ${PYTHON_ARGS[@]+"${PYTHON_ARGS[@]}"} 2>&1 | tee -a "$LOG_FILE"
 
 fi
