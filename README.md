@@ -30,6 +30,16 @@ Automated Viessmann heating schedule management — with two-week cycle support,
 
 ---
 
+## Files to fill in (never committed)
+
+| File | Needed when | How |
+|---|---|---|
+| `mqtt_credentials.json` | Outside Home Assistant (macOS), or inside it when the Supervisor does not provide the broker settings | Copy `mqtt_credentials.json.template`, fill in host, port, username, password. macOS: project root. Home Assistant: `/config/viessmann-planning/` |
+
+Nothing else is needed on this branch: no Viessmann account, no Home Assistant token (inside the add-on, Home Assistant provides its own).
+
+---
+
 ## Why viessmann-planning
 
 Viessmann boilers have on-device schedules — but those schedules are limited to a seven-day week. There is no native way to express two-week custody cycles, multi-week exception periods, or independent control of heating setpoints vs. DHW (domestic hot water) setpoints.
