@@ -686,6 +686,47 @@ def verify(device, l1_cfg: dict | None, l2_cfg: dict | None, now: datetime.datet
 # HA SENSOR PUSH
 # ---------------------------------------------------------------------------
 
+def push_gateway_status(online: bool, reason: str) -> None:
+    """Publie dans HA l'accessibilité de la passerelle (Vitoconnect) vue par l'add-on, à chaque run,
+    y compris quand la connexion échoue (GATEWAY_OFFLINE…) — l'onglet « Vitoconnect » de HA2 s'en sert.
+    Les états POSTés ne survivent pas à un redémarrage de HA : ils sont republiés toutes les 10 min."""
+    token = os.environ.get("SUPERVISOR_TOKEN")
+    if not token:
+        return
+    try:
+        import requests as _req
+    except ImportError:
+        return
+    hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    checked = datetime.datetime.now().astimezone().isoformat()
+    payloads = [
+        ("binary_sensor.viessmann_planning_gateway_online", {
+            "state": "on" if online else "off",
+            "attributes": {"friendly_name": "Viessmann Planning — passerelle joignable",
+                           "device_class": "connectivity", "icon": "mdi:cloud-sync",
+                           "reason": reason, "checked_at": checked},
+        }),
+        ("sensor.viessmann_planning_gateway_status", {
+            "state": reason,
+            "attributes": {"friendly_name": "Viessmann Planning — statut passerelle",
+                           "icon": "mdi:cloud-question", "checked_at": checked},
+        }),
+    ]
+    for entity_id, payload in payloads:
+        try:
+            r = _req.post(f"http://supervisor/core/api/states/{entity_id}", headers=hdr, json=payload, timeout=5)
+            log(f"[HA] {entity_id} → HTTP {r.status_code}", 1)
+        except Exception as e:
+            log(f"[HA] {entity_id} push failed: {e}", 1)
+
+
+def _comm_reason(exc: Exception) -> str:
+    """'GATEWAY_OFFLINE', 'DEVICE_COMMUNICATION_ERROR'… extrait du message PyViCare, sinon le type de l'exception."""
+    import re
+    m = re.search(r"Reason:\s*([A-Z_]+)", str(exc))
+    return m.group(1) if m else type(exc).__name__
+
+
 def push_ha_sensors(l1_cfg_name: str | None, l2_cfg_name: str | None,
                     l1_temp: int | None, l2_temp: int | None):
     token = os.environ.get("SUPERVISOR_TOKEN")
@@ -924,7 +965,19 @@ def main():
         return
 
     log("[VIESSMANN] Connecting...")
-    _, device = get_vicare_client()
+    try:
+        _, device = get_vicare_client()
+    except SystemExit:
+        push_gateway_status(False, "AUTH_ERROR")
+        raise
+    except Exception as e:
+        reason = _comm_reason(e)
+        log(f"[VIESSMANN] Device unreachable: {reason} ({e})")
+        push_gateway_status(False, reason)
+        log_api_stats()
+        save_api_stats()
+        return
+    push_gateway_status(True, "online")
 
     l1_updated = False
     l2_updated = False
