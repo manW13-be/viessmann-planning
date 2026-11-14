@@ -94,6 +94,7 @@ Same three-group precedence as tado-planning, but `select_config_for_level()` is
 - Reads use the retained values. A write publishes the value to `vito/<name>/set`, then waits (20 s) until the reader
   republishes it; the scheduler only writes when the value read differs from the target.
 - The reference is the reader's contract: `../vitoconnect-rpi/CONTRAT_MQTT.md`. No Optolink address in this project.
+- Template for the settings file: `mqtt_credentials.json.template` (copy it to `mqtt_credentials.json`, never commit the copy).
 - Broker settings: `mqtt_credentials.json` if present (`{"host", "port", "username", "password"}`; project root on
   macOS, `/config/viessmann-planning/` on HA), else the Supervisor MQTT service (`"services": ["mqtt:need"]`).
 - Failure reasons published to HA (`binary_sensor.viessmann_planning_gateway_online`, attribute `reason`):

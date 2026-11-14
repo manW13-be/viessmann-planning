@@ -18,6 +18,15 @@ Home Assistant add-on that manages Viessmann boiler setpoints from two-week cycl
 
 - The boiler readable and writable locally (Optolink reader publishing to MQTT).
 
+## MQTT broker settings
+
+Inside Home Assistant the add-on asks the Supervisor for the broker settings. If that is not available, or outside Home Assistant, copy `mqtt_credentials.json.template` to `mqtt_credentials.json` and fill it in:
+
+- macOS: at the project root, next to the template
+- Home Assistant: `/config/viessmann-planning/mqtt_credentials.json`
+
+When the file exists it takes precedence. It is ignored by git.
+
 ## Data
 
 Schedules and settings are stored in `/config/viessmann-planning/schedules/`.
