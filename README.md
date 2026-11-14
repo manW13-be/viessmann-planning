@@ -173,6 +173,15 @@ viessmann-planning/
 
 ---
 
+## Files to fill in (never committed)
+
+| File | Needed when | How |
+|---|---|---|
+| `viessmann_credentials.json` | Always on this branch (Viessmann cloud) | Copy `viessmann_credentials.json.template`, fill in the Viessmann account and the developer client id (next section). macOS: project root. Home Assistant: `/config/viessmann-planning/`, or the web configurator |
+| `viessmann_token.save` | Never by hand | Written by the program after the first login |
+
+---
+
 ## Viessmann API credentials
 
 viessmann-planning uses the **Viessmann Developer API** (cloud, OAuth2). You need to register a client application:
